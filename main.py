@@ -87,6 +87,7 @@ async def main() -> None:
     from osint_recon.modules.document_scanner_module import DocumentScannerModule
     from osint_recon.modules.metadata_extractor_module import MetadataExtractorModule
     from osint_recon.modules.mock_module import MockModule
+    from osint_recon.modules.social_media_module import SocialMediaModule
     from osint_recon.modules.subdomain_module import SubdomainModule
     from osint_recon.modules.whois_dns_module import WhoisDnsModule
 
@@ -94,13 +95,14 @@ async def main() -> None:
         modules = [MockModule()]
         logger.info("Running in MOCK mode -- no network calls will be made.")
     else:
-        # Production module list -- Steps 2, 3, 4, 5 complete.
+        # All 6 MVP modules active.
         modules = [
             WhoisDnsModule(),
             SubdomainModule(),
             CompanyMapperModule(),
             DocumentScannerModule(),
             MetadataExtractorModule(),
+            SocialMediaModule(),
         ]
 
     # ── run ─────────────────────────────────────────────────────────────────

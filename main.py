@@ -83,6 +83,9 @@ async def main() -> None:
     # ── assemble module list ────────────────────────────────────────────────
     # Step 1 (current): only MockModule wired up.
     # Future modules will be imported and appended here.
+    from osint_recon.modules.company_mapper_module import CompanyMapperModule
+    from osint_recon.modules.document_scanner_module import DocumentScannerModule
+    from osint_recon.modules.metadata_extractor_module import MetadataExtractorModule
     from osint_recon.modules.mock_module import MockModule
     from osint_recon.modules.subdomain_module import SubdomainModule
     from osint_recon.modules.whois_dns_module import WhoisDnsModule
@@ -91,11 +94,13 @@ async def main() -> None:
         modules = [MockModule()]
         logger.info("Running in MOCK mode -- no network calls will be made.")
     else:
-        # Production module list (grows with each step of the critical path).
-        # Step 2: WhoisDnsModule  Step 3: SubdomainModule
+        # Production module list -- Steps 2, 3, 4, 5 complete.
         modules = [
             WhoisDnsModule(),
             SubdomainModule(),
+            CompanyMapperModule(),
+            DocumentScannerModule(),
+            MetadataExtractorModule(),
         ]
 
     # ── run ─────────────────────────────────────────────────────────────────

@@ -1,0 +1,8 @@
+{
+  "ip": "93.184.216.34",
+  "ports": [80, 443, 22, 3306, 6379],
+  "vulns": ["CVE-2023-44487", "CVE-2021-41773"],
+  "cpes": ["cpe:/a:apache:http_server:2.4.50", "cpe:/o:linux:linux_kernel"],
+  "hostnames": ["www.example.com", "edge.example.com"],
+  "tags": ["self-signed", "cloud"]
+}

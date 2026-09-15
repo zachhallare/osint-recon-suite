@@ -6,29 +6,29 @@ A complete step-by-step guide to installing, configuring, and running the **OSIN
 
 ## ⚡ 30-Second Quickstart
 
-> **TL;DR — no manual setup needed.** The launchers (`run.sh`, `run.command`, `run.bat`) handle venv creation, dependency installation, and interactive prompts automatically.
+> **TL;DR - no manual setup needed.** The launchers in `scripts/` handle venv creation, dependency installation, and interactive prompts automatically.
 
 ### macOS
 
 ```bash
-# Clone and launch — Terminal opens, prompts for domain automatically
 git clone https://github.com/zachhallare/osint-recon-suite.git
 cd osint-recon-suite
-chmod +x run.sh && ./run.sh
+chmod +x scripts/run.sh scripts/run.command scripts/uninstall.sh scripts/uninstall.command
+./scripts/run.sh
 ```
 
-> **Finder shortcut:** Double-click **`run.command`** in Finder.  
-> macOS will open a Terminal window and walk you through setup interactively.
+> **Finder shortcut:** Double-click **`scripts/run.command`** in Finder and Terminal opens automatically.
 
 ### Linux (Kali, Ubuntu, Debian, Arch, Fedora)
 
 ```bash
-# Kali / Debian / Ubuntu — ensure prerequisites first (one-time):
+# Kali / Debian / Ubuntu - ensure prerequisites first (one-time):
 # sudo apt install -y python3 python3-venv python3-pip whois git
 
 git clone https://github.com/zachhallare/osint-recon-suite.git
 cd osint-recon-suite
-chmod +x run.sh && ./run.sh
+chmod +x scripts/run.sh scripts/uninstall.sh
+./scripts/run.sh
 ```
 
 ### Windows
@@ -36,10 +36,10 @@ chmod +x run.sh && ./run.sh
 ```bat
 git clone https://github.com/zachhallare/osint-recon-suite.git
 cd osint-recon-suite
-run.bat
+scripts\run.bat
 ```
 
-> **Explorer shortcut:** Double-click **`run.bat`** — CMD opens automatically.
+> **Explorer shortcut:** Double-click **`scripts\run.bat`** in Explorer and CMD opens automatically.
 
 ---
 
@@ -55,15 +55,14 @@ run.bat
 
 **Quick mock test (no network calls):**
 ```bash
-./run.sh example.com --mock     # Linux / macOS
-run.bat  example.com --mock     # Windows
+./scripts/run.sh example.com --mock     # Linux / macOS
+scripts\run.bat example.com --mock      # Windows
 ```
 
 **Clean uninstall when you're done:**
 ```bash
-./uninstall.sh          # Linux / macOS (interactive menu)
-# — or double-click uninstall.command on macOS
-uninstall.bat           # Windows (interactive menu)
+./scripts/uninstall.sh          # Linux / macOS (or double-click scripts/uninstall.command in Finder)
+scripts\uninstall.bat           # Windows
 ```
 
 ---
@@ -248,7 +247,7 @@ python main.py <target> [flags]
 | `--no-confirm` | Bypass the interactive target confirmation prompt (useful in CI pipelines or bash scripts) | `False` |
 | `--db PATH` | Custom SQLite database file location | `data/osint.db` |
 | `--output DIR`| Output directory where the HTML risk report will be written | `reports/` |
-| `-h`, `--help` | Show command line help message and exit | — |
+| `-h`, `--help` | Show command line help message and exit | - |
 
 ### Examples
 
@@ -363,17 +362,16 @@ mkdir -p data reports
 
 Depending on whether you want to reset scan artifacts, clean sensitive OSINT data, or completely remove the suite from your system, follow the appropriate method below.
 
-> **Recommended:** Use the included **turnkey uninstaller scripts** — they present an interactive menu and handle everything automatically.
+> **Recommended:** Use the included uninstaller scripts - they present an interactive menu and handle everything automatically.
 >
 > ```bash
-> ./uninstall.sh          # Linux / macOS (run in Terminal)
-> # — or double-click uninstall.command on macOS Finder
-> uninstall.bat           # Windows (double-click or run in CMD)
+> ./scripts/uninstall.sh          # Linux / macOS (or double-click scripts/uninstall.command in Finder)
+> scripts\uninstall.bat           # Windows (double-click or run in CMD)
 > ```
 >
 > **Uninstaller menu:**
-> - **Option 1** — Remove scan data only (reports, DB, logs, caches). Source code and venv are kept.
-> - **Option 2** — Full removal: everything above, plus `venv/` and the entire repository directory. Requires typing `yes` to confirm before deleting anything.
+> - **Option 1** - Remove scan data only (reports, DB, logs, caches). Source code and venv are kept.
+> - **Option 2** - Full removal: everything above, plus `venv/` and the entire repository directory. Requires typing `yes` to confirm before deleting anything.
 
 The manual steps below are provided for reference or headless/scripted environments.
 

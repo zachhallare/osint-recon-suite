@@ -1,25 +1,19 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  run.command — OSINT Recon Suite  (macOS Finder double-click launcher)
+#  scripts/run.command — OSINT Recon Suite macOS Finder double-click launcher
 # =============================================================================
 #
 #  HOW TO USE:
-#    1. Open Finder and navigate to the osint-recon-suite folder.
-#    2. Double-click run.command.
-#    3. If macOS asks for permission, click "Open" in the security dialog.
-#    4. Terminal will open automatically and prompt you for a target domain.
+#    Open Finder, navigate to osint-recon-suite/scripts/, and double-click
+#    run.command. Terminal opens automatically and walks you through setup.
 #
-#  FIRST-TIME SETUP (one-time, only needed once):
-#    If macOS says the file cannot be opened because it is from an unidentified
-#    developer, right-click (or Control-click) run.command → Open → Open.
-#    Alternatively run once in Terminal:
-#      chmod +x run.command
+#  FIRST-TIME SETUP (one-time only):
+#    chmod +x scripts/run.command scripts/run.sh scripts/uninstall.sh scripts/uninstall.command
 #
 # =============================================================================
 
 set -euo pipefail
 
-# ── Colours ──────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
 YLW='\033[0;33m'
 GRN='\033[0;32m'
@@ -32,10 +26,10 @@ warn()  { echo -e "  ${YLW}[!]${RST} $*"; }
 error() { echo -e "  ${RED}[✗]${RST} $*" >&2; }
 step()  { echo -e "  ${CYN}[→]${RST} $*"; }
 
-# ── Move to the directory containing this script ──────────────────────────────
-# (When double-clicked in Finder the working directory starts at $HOME)
+# ── Locate repo root (one level above scripts/) ───────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+REPO_DIR="$(dirname "$SCRIPT_DIR")"
+cd "$REPO_DIR"
 
 clear
 echo ""
@@ -43,7 +37,7 @@ echo -e "${CYN}${BLD}╔══════════════════�
 echo -e "${CYN}${BLD}║       OSINT Recon Suite  — macOS Launcher            ║${RST}"
 echo -e "${CYN}${BLD}╚══════════════════════════════════════════════════════╝${RST}"
 echo ""
-info "Working directory: $SCRIPT_DIR"
+info "Repository: $REPO_DIR"
 echo ""
 
 # ── Python detection ──────────────────────────────────────────────────────────
@@ -73,7 +67,7 @@ fi
 info "Python: $("$PYTHON" --version)"
 
 # ── Virtual environment ───────────────────────────────────────────────────────
-VENV_DIR="$SCRIPT_DIR/venv"
+VENV_DIR="$REPO_DIR/venv"
 
 if [[ ! -d "$VENV_DIR" ]]; then
     step "Creating virtual environment at venv/ ..."
@@ -88,7 +82,7 @@ source "$VENV_DIR/bin/activate"
 
 # ── Install / update dependencies ────────────────────────────────────────────
 STAMP_FILE="$VENV_DIR/.install_stamp"
-REQ_FILE="$SCRIPT_DIR/requirements.txt"
+REQ_FILE="$REPO_DIR/requirements.txt"
 
 if [[ ! -f "$STAMP_FILE" ]] || [[ "$REQ_FILE" -nt "$STAMP_FILE" ]]; then
     step "Installing / updating dependencies ..."
@@ -101,23 +95,19 @@ else
 fi
 
 echo ""
-mkdir -p "$SCRIPT_DIR/data" "$SCRIPT_DIR/reports"
+mkdir -p "$REPO_DIR/data" "$REPO_DIR/reports"
 
 # ── Interactive prompts ───────────────────────────────────────────────────────
-echo -e "${BLD}  ── Scan Configuration ─────────────────────────────────${RST}"
+echo -e "${BLD}  -- Scan Configuration ----------------------------------------${RST}"
 echo ""
 
-# Target domain
 while true; do
     read -rp "  Enter the target domain (e.g. example.com): " TARGET
     TARGET="${TARGET// /}"
-    if [[ -n "$TARGET" ]]; then
-        break
-    fi
+    [[ -n "$TARGET" ]] && break
     warn "Domain cannot be empty. Please try again."
 done
 
-# Scan mode
 echo ""
 echo "  Select scan mode:"
 echo "    [1] Live scan   — real HTTP/DNS requests (default)"
@@ -126,36 +116,32 @@ echo ""
 read -rp "  Your choice [1/2, default=1]: " MODE_CHOICE
 MODE_CHOICE="${MODE_CHOICE:-1}"
 
-# Confirmation prompt setting
 echo ""
 echo "  Show interactive confirmation before scanning?"
-echo "    [1] Yes (recommended)  — prompts you to verify the target (default)"
-echo "    [2] No                 — start immediately without confirmation"
+echo "    [1] Yes (recommended, default)"
+echo "    [2] No  — start immediately"
 echo ""
 read -rp "  Your choice [1/2, default=1]: " CONFIRM_CHOICE
 CONFIRM_CHOICE="${CONFIRM_CHOICE:-1}"
 
-# Build args
 ARGS=("$TARGET")
 [[ "$MODE_CHOICE" == "2" ]] && ARGS+=("--mock")
 [[ "$CONFIRM_CHOICE" == "2" ]] && ARGS+=("--no-confirm")
 
 # ── Launch ────────────────────────────────────────────────────────────────────
 echo ""
-echo -e "${CYN}${BLD}  ── Starting Scan ───────────────────────────────────${RST}"
-echo ""
 info "Running: python main.py ${ARGS[*]}"
 echo ""
 
-"$PYTHON" "$SCRIPT_DIR/main.py" "${ARGS[@]}"
+"$PYTHON" "$REPO_DIR/main.py" "${ARGS[@]}"
 EXIT_CODE=$?
 
 echo ""
 if [[ $EXIT_CODE -eq 0 ]]; then
-    info "Scan complete! Open the HTML report from the reports/ folder."
-    info "Tip: run   open reports/*.html   to view it in your browser."
+    info "Scan complete! Open the report from the reports/ folder."
+    info "Tip:  open $REPO_DIR/reports/*.html"
 else
-    error "Scan exited with code $EXIT_CODE. Check the output above for details."
+    error "Scan exited with code $EXIT_CODE."
 fi
 
 echo ""

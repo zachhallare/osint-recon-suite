@@ -1,0 +1,13 @@
+[
+  {"name_value": "www.example.com",         "issuer_name": "Let's Encrypt"},
+  {"name_value": "mail.example.com",        "issuer_name": "Let's Encrypt"},
+  {"name_value": "dev.example.com",         "issuer_name": "DigiCert"},
+  {"name_value": "staging.example.com",     "issuer_name": "DigiCert"},
+  {"name_value": "api.example.com",         "issuer_name": "Let's Encrypt"},
+  {"name_value": "admin.example.com",       "issuer_name": "Sectigo"},
+  {"name_value": "vpn.example.com",         "issuer_name": "Sectigo"},
+  {"name_value": "*.example.com",           "issuer_name": "DigiCert"},
+  {"name_value": "example.com",             "issuer_name": "Let's Encrypt"},
+  {"name_value": "old.legacy.example.com",  "issuer_name": "Comodo"},
+  {"name_value": "test.example.com\nqa.example.com", "issuer_name": "Let's Encrypt"}
+]

@@ -84,18 +84,19 @@ async def main() -> None:
     # Step 1 (current): only MockModule wired up.
     # Future modules will be imported and appended here.
     from osint_recon.modules.mock_module import MockModule
+    from osint_recon.modules.subdomain_module import SubdomainModule
+    from osint_recon.modules.whois_dns_module import WhoisDnsModule
 
     if args.mock:
         modules = [MockModule()]
-        logger.info("Running in MOCK mode — no network calls will be made.")
+        logger.info("Running in MOCK mode -- no network calls will be made.")
     else:
         # Production module list (grows with each step of the critical path).
-        # For now, identical to mock until real modules are built.
-        modules = [MockModule()]
-        logger.warning(
-            "No real modules built yet — running MockModule as placeholder. "
-            "This will be replaced in Step 2."
-        )
+        # Step 2: WhoisDnsModule  Step 3: SubdomainModule
+        modules = [
+            WhoisDnsModule(),
+            SubdomainModule(),
+        ]
 
     # ── run ─────────────────────────────────────────────────────────────────
     from osint_recon.orchestrator import Orchestrator

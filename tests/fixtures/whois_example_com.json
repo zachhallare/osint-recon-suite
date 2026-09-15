@@ -1,0 +1,16 @@
+{
+  "_comment": "Saved WHOIS fixture for example.com — used in offline unit tests",
+  "domain_name": ["EXAMPLE.COM", "example.com"],
+  "registrar": "RESERVED-Internet Assigned Numbers Authority",
+  "whois_server": "whois.iana.org",
+  "creation_date": "1995-08-14T04:00:00",
+  "expiration_date": "2025-08-13T04:00:00",
+  "updated_date": "2023-08-14T07:01:31",
+  "name_servers": ["A.IANA-SERVERS.NET", "B.IANA-SERVERS.NET"],
+  "status": ["clientDeleteProhibited", "clientTransferProhibited"],
+  "emails": null,
+  "dnssec": "signedDelegation",
+  "org": "Internet Assigned Numbers Authority",
+  "registrant_name": null,
+  "country": "US"
+}

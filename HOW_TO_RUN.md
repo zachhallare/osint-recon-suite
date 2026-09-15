@@ -4,19 +4,85 @@ A complete step-by-step guide to installing, configuring, and running the **OSIN
 
 ---
 
-## Table of Contents
-1. [Compatibility Overview](#compatibility-overview)
-2. [Kali Linux Setup & Execution](#kali-linux-setup--execution)
-3. [Other Linux Distributions (Debian, Ubuntu, Arch, Fedora)](#other-linux-distributions)
-4. [macOS Setup & Execution](#macos-setup--execution)
-5. [Windows Setup & Execution](#windows-setup--execution)
-6. [CLI Usage & Scan Modes](#cli-usage--scan-modes)
-7. [Viewing the HTML Report](#viewing-the-html-report)
-8. [Running Automated Tests](#running-automated-tests)
-9. [Troubleshooting & Kali Linux FAQ](#troubleshooting--kali-linux-faq)
-10. [Safely Cleaning Up & Uninstalling](#safely-cleaning-up--uninstalling)
+## ⚡ 30-Second Quickstart
+
+> **TL;DR — no manual setup needed.** The launchers (`run.sh`, `run.command`, `run.bat`) handle venv creation, dependency installation, and interactive prompts automatically.
+
+### macOS
+
+```bash
+# Clone and launch — Terminal opens, prompts for domain automatically
+git clone https://github.com/zachhallare/osint-recon-suite.git
+cd osint-recon-suite
+chmod +x run.sh && ./run.sh
+```
+
+> **Finder shortcut:** Double-click **`run.command`** in Finder.  
+> macOS will open a Terminal window and walk you through setup interactively.
+
+### Linux (Kali, Ubuntu, Debian, Arch, Fedora)
+
+```bash
+# Kali / Debian / Ubuntu — ensure prerequisites first (one-time):
+# sudo apt install -y python3 python3-venv python3-pip whois git
+
+git clone https://github.com/zachhallare/osint-recon-suite.git
+cd osint-recon-suite
+chmod +x run.sh && ./run.sh
+```
+
+### Windows
+
+```bat
+git clone https://github.com/zachhallare/osint-recon-suite.git
+cd osint-recon-suite
+run.bat
+```
+
+> **Explorer shortcut:** Double-click **`run.bat`** — CMD opens automatically.
 
 ---
+
+**What the launchers do (automatically, every time):**
+
+| Step | Action |
+|------|--------|
+| 1 | Detect Python 3.11+ (errors clearly if missing) |
+| 2 | Create `venv/` if it does not exist |
+| 3 | Install / upgrade dependencies from `requirements.txt` (once; re-runs only when the file changes) |
+| 4 | Prompt for **target domain** and **scan mode** when no CLI args are given |
+| 5 | Launch `main.py` and write the HTML report to `reports/` |
+
+**Quick mock test (no network calls):**
+```bash
+./run.sh example.com --mock     # Linux / macOS
+run.bat  example.com --mock     # Windows
+```
+
+**Clean uninstall when you're done:**
+```bash
+./uninstall.sh          # Linux / macOS (interactive menu)
+# — or double-click uninstall.command on macOS
+uninstall.bat           # Windows (interactive menu)
+```
+
+---
+
+## Table of Contents
+1. [30-Second Quickstart](#-30-second-quickstart)
+2. [Compatibility Overview](#compatibility-overview)
+3. [Kali Linux Setup & Execution](#kali-linux-setup--execution)
+4. [Other Linux Distributions (Debian, Ubuntu, Arch, Fedora)](#other-linux-distributions)
+5. [macOS Setup & Execution](#macos-setup--execution)
+6. [Windows Setup & Execution](#windows-setup--execution)
+7. [CLI Usage & Scan Modes](#cli-usage--scan-modes)
+8. [Viewing the HTML Report](#viewing-the-html-report)
+9. [Running Automated Tests](#running-automated-tests)
+10. [Troubleshooting & Kali Linux FAQ](#troubleshooting--kali-linux-faq)
+11. [Safely Cleaning Up & Uninstalling](#safely-cleaning-up--uninstalling)
+
+---
+
 
 ## Compatibility Overview
 
@@ -296,6 +362,23 @@ mkdir -p data reports
 ## Safely Cleaning Up & Uninstalling
 
 Depending on whether you want to reset scan artifacts, clean sensitive OSINT data, or completely remove the suite from your system, follow the appropriate method below.
+
+> **Recommended:** Use the included **turnkey uninstaller scripts** — they present an interactive menu and handle everything automatically.
+>
+> ```bash
+> ./uninstall.sh          # Linux / macOS (run in Terminal)
+> # — or double-click uninstall.command on macOS Finder
+> uninstall.bat           # Windows (double-click or run in CMD)
+> ```
+>
+> **Uninstaller menu:**
+> - **Option 1** — Remove scan data only (reports, DB, logs, caches). Source code and venv are kept.
+> - **Option 2** — Full removal: everything above, plus `venv/` and the entire repository directory. Requires typing `yes` to confirm before deleting anything.
+
+The manual steps below are provided for reference or headless/scripted environments.
+
+---
+
 
 ### Method 1: Clean Up Scan Data & Reports Only (Keep the Code & Venv)
 If you want to keep the application ready for future runs but wipe all past scan findings, logs, and sensitive client reports:

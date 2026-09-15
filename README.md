@@ -6,6 +6,68 @@
 
 ---
 
+## ⚡ 30-Second Quickstart
+
+> No manual setup required. Clone the repository and run **one command** — the launcher handles virtual environment creation, dependency installation, and interactive prompts automatically.
+
+### macOS
+
+```bash
+git clone https://github.com/zachhallare/osint-recon-suite.git
+cd osint-recon-suite
+chmod +x run.sh && ./run.sh
+```
+
+> **Finder shortcut:** Double-click **`run.command`** in Finder instead — Terminal opens automatically and walks you through setup.
+
+### Linux (Kali, Ubuntu, Debian, Arch, Fedora)
+
+```bash
+git clone https://github.com/zachhallare/osint-recon-suite.git
+cd osint-recon-suite
+chmod +x run.sh && ./run.sh
+```
+
+### Windows
+
+```bat
+git clone https://github.com/zachhallare/osint-recon-suite.git
+cd osint-recon-suite
+run.bat
+```
+
+> **Explorer shortcut:** Double-click **`run.bat`** in File Explorer — CMD opens automatically and walks you through setup.
+
+> [!NOTE]
+> **macOS / Linux — make scripts executable once after cloning:**
+> ```bash
+> chmod +x run.sh run.command uninstall.sh uninstall.command
+> ```
+> This is a one-time step. Not needed on Windows.
+
+The launcher will:
+1. ✅ Detect your Python installation (3.11+ required)
+2. ✅ Create `venv/` automatically if it does not exist
+3. ✅ Install all dependencies from `requirements.txt` (once, and only when changed)
+4. ✅ Prompt you for a **target domain** and **scan mode** if no arguments are passed
+5. ✅ Launch the scan and save the HTML report to `reports/`
+
+**First scan with no network calls (safe pipeline test):**
+```bash
+./run.sh example.com --mock     # Linux / macOS
+run.bat example.com --mock      # Windows
+```
+
+**Uninstall cleanly when you're done:**
+```bash
+./uninstall.sh     # Linux / macOS  (or double-click uninstall.command on macOS)
+uninstall.bat      # Windows
+```
+
+> For a full OS-specific guide (Kali Linux, headless servers, WSL, etc.) see **[HOW_TO_RUN.md](HOW_TO_RUN.md)**.
+
+---
+
 ## Description
 
 OSINT Recon Suite is a command-line Python application that automates the passive recon phase of a security assessment. Given a single target (domain name or entity), it queries multiple public sources — WHOIS registries, DNS resolvers, certificate transparency logs, Shodan's free InternetDB, publicly accessible file paths, and social media platforms — and consolidates all findings into a single, professional HTML risk report.
@@ -227,18 +289,6 @@ The HTML report is a self-contained dark-mode page with:
 
 ---
 
-## Future Improvements
-
-These items are documented in implementation.md under Future Enhancements and are strictly post-MVP. None will be implemented until all six MVP modules have passed their Definition of Done and have been explicitly approved.
-
-- Risk scoring: rank findings by severity instead of listing flat; an exposed .git repo should sort above a robots.txt entry.
-- CLI module flags: --only whois_dns,subdomain for faster partial scans.
-- Diff-based scanning: compare today's scan against the last scan_run in the database; surface only what changed (new subdomain, newly exposed file, new CVE).
-- Breach-check module: query a public breach database API to flag email addresses tied to the target domain.
-- Local web dashboard: browse historical scans in a browser instead of opening individual HTML files.
-
----
-
 ## Ethical Disclaimer
 
 This tool is for passive, authorised reconnaissance only.
@@ -248,16 +298,6 @@ This tool is for passive, authorised reconnaissance only.
 - The tool never attempts active exploitation, authentication bypass, rate-limit evasion, or CAPTCHA circumvention.
 - Misuse of this tool against targets you do not have permission to test may violate computer fraud laws in your jurisdiction (for example the Computer Fraud and Abuse Act in the United States or the Computer Misuse Act in the United Kingdom).
 - The built-in interactive confirmation prompt is intentional and should not be routinely bypassed with --no-confirm in production use.
-
----
-
-## Group Members and Roles
-
-| Name | Role | Responsibilities |
-|------|------|-----------------|
-| Zach Hallare | Lead Developer and Security Architect | Architecture design, all module development, database schema, report generation, testing strategy |
-
-This is a solo portfolio project.
 
 ---
 
@@ -300,7 +340,25 @@ osint-recon-suite/
 ├── pytest.ini              Tells pytest to use asyncio as the event loop backend. Required for async tests.
 ├── .gitignore              Prevents secrets (.env), reports, databases, and cache from being committed to git.
 ├── implementation.md       The original spec: PRD, TRD, database schema, and 6-step critical path.
-└── README.md               This file.
+├── README.md               This file.
+│
+│  Launchers (auto-setup venv, install deps, interactive prompts)
+│
+├── run.sh                  Bootstrap launcher for Linux and macOS.
+│                           Double-clickable from a file manager; auto-creates venv, installs requirements,
+│                           prompts interactively for target and mode when no CLI args are supplied.
+├── run.command             macOS Finder double-click launcher. Opens Terminal automatically.
+│                           Identical behaviour to run.sh; .command extension triggers macOS Terminal.app.
+├── run.bat                 Windows double-click or CMD/PowerShell launcher.
+│                           Detects Python, creates venv\, installs deps, then prompts or passes args.
+│
+│  Uninstallers (safe interactive cleanup)
+│
+├── uninstall.sh            Interactive uninstaller for Linux and macOS.
+│                           Menu: Option 1 cleans scan data only; Option 2 removes venv + repo entirely.
+├── uninstall.command       macOS Finder double-click uninstaller. Identical behaviour to uninstall.sh.
+└── uninstall.bat           Windows interactive uninstaller with identical menu and safety confirmation.
+
 
 osint_recon/                The main Python package — all production code lives here.
 │

@@ -49,6 +49,9 @@ chmod +x scripts/run.sh scripts/run.command scripts/uninstall.sh scripts/uninsta
 ### Linux (Kali, Ubuntu, Debian, Arch, Fedora)
 
 ```bash
+# Kali / Debian / Ubuntu - ensure prerequisites first (one-time):
+# sudo apt install -y python3 python3-venv python3-pip whois git
+
 git clone https://github.com/zachhallare/osint-recon-suite.git
 cd osint-recon-suite
 chmod +x scripts/run.sh scripts/uninstall.sh

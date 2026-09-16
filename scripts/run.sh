@@ -142,7 +142,7 @@ info "Launching OSINT Recon Suite ..."
 echo -e "  ${YLW}Command:${RST} python main.py ${ARGS[*]}"
 echo ""
 
-"$PYTHON" "$REPO_DIR/main.py" "${ARGS[@]}"
+"$VENV_DIR/bin/python" "$REPO_DIR/main.py" "${ARGS[@]}"
 EXIT_CODE=$?
 
 echo ""

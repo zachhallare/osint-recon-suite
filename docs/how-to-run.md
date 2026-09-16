@@ -356,6 +356,13 @@ SHODAN_API_KEY=yourShodanKeyHere
 mkdir -p data reports
 ```
 
+### 6. `ERROR: Failed to build 'Pillow'` or `KeyError: '__version__'`
+**Cause:** Older pinned versions of Pillow (`<=10.3.0`) lack prebuilt binary wheels for modern Python releases (Python 3.13 / 3.14 on Kali Linux rolling release), prompting a source build whose legacy `setup.py` fails on newer setuptools.  
+**Fix:** Ensure Pillow is updated to `>=10.4.0` in `requirements.txt` (which ships precompiled wheels for modern Python):
+```bash
+pip install --upgrade "pillow>=10.4.0"
+```
+
 ---
 
 ## Safely Cleaning Up & Uninstalling

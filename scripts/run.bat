@@ -149,7 +149,7 @@ echo  [+] Launching OSINT Recon Suite ...
 echo  [->] Command: python main.py !ARGS!
 echo.
 
-!PYTHON! "!REPO_DIR!\main.py" !ARGS!
+"!VENV_DIR!\Scripts\python.exe" "!REPO_DIR!\main.py" !ARGS!
 set "EXIT_CODE=!errorlevel!"
 
 echo.

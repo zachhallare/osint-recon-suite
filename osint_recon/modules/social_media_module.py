@@ -104,19 +104,27 @@ def _slugify(domain: str) -> list[str]:
          "my-company.io" -> ["my-company", "mycompany"]
          "acme.co.uk"   -> ["acme"]
     """
+    # Strip protocol, path, and port if present
+    d = domain.strip().lower()
+    if "://" in d:
+        d = d.split("://", 1)[1]
+    d = d.split("/")[0].split(":")[0]
+
     # Strip TLD(s) — keep leftmost label(s) only
-    parts = domain.lower().split(".")
+    parts = d.split(".")
     # Common two-part TLDs (co.uk, com.au, etc.)
     two_part_tlds = {"co.uk", "com.au", "co.nz", "co.za", "com.br", "org.uk"}
     if len(parts) >= 3 and f"{parts[-2]}.{parts[-1]}" in two_part_tlds:
         base = ".".join(parts[:-2])
-    else:
+    elif len(parts) >= 2:
         base = ".".join(parts[:-1])
+    else:
+        base = parts[0]
 
     slugs = [base]
     # Also add a version with hyphens removed for platforms that don't allow them
     no_hyphen = base.replace("-", "").replace(".", "")
-    if no_hyphen != base:
+    if no_hyphen and no_hyphen != base:
         slugs.append(no_hyphen)
     return slugs
 

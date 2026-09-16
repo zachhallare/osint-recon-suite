@@ -31,11 +31,33 @@ from typing import Sequence
 
 _UTC = timezone.utc
 
+import re
+from urllib.parse import urlparse
+
 from osint_recon.base_module import BaseModule
 from osint_recon.database import Database
 from osint_recon.models import ScanResult
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_target(target: str) -> str:
+    """
+    Sanitizes user input into a clean hostname/domain.
+    Examples:
+        'https://pentest-ground.com:4280/' -> 'pentest-ground.com'
+        'http://example.com/path?foo=bar'  -> 'example.com'
+        'example.com:8080'                 -> 'example.com'
+        'example.com/'                     -> 'example.com'
+    """
+    t = target.strip()
+    if "://" in t:
+        parsed = urlparse(t)
+        t = parsed.netloc or parsed.path
+    t = re.split(r"[/?#]", t)[0]
+    if ":" in t and not t.startswith("["):
+        t = t.split(":")[0]
+    return t.strip().lower()
 
 
 class Orchestrator:
@@ -71,7 +93,10 @@ class Orchestrator:
         Returns a fully-populated ScanResult; never raises (module-level
         failures are captured as FAILED ModuleResults).
         """
-        target = target.strip().lower()
+        raw_target = target.strip()
+        target = normalize_target(raw_target)
+        if target != raw_target.lower():
+            logger.info("Target normalized: '%s' -> '%s'", raw_target, target)
 
         # Security guardrail: confirm before touching any external resource
         if self.confirm and not self._confirm_target(target):

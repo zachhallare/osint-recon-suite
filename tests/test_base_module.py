@@ -55,3 +55,15 @@ async def test_broken_module_does_not_raise():
     assert result.findings == []
     assert "RuntimeError" in result.error
     assert result.duration_s >= 0
+
+
+def test_normalize_target():
+    from osint_recon.orchestrator import normalize_target
+
+    assert normalize_target("example.com") == "example.com"
+    assert normalize_target("  EXAMPLE.COM  ") == "example.com"
+    assert normalize_target("https://pentest-ground.com:4280/") == "pentest-ground.com"
+    assert normalize_target("http://example.com/some/path?query=1") == "example.com"
+    assert normalize_target("example.com:8080") == "example.com"
+    assert normalize_target("http://sub.domain.co.uk/") == "sub.domain.co.uk"
+

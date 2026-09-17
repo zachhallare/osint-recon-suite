@@ -1,13 +1,4 @@
-"""
-osint_recon/modules/mock_module.py
-----------------------------------
-A fake recon module that returns hard-coded findings.
-Used to:
-  • Smoke-test the orchestrator + report pipeline with no network calls.
-  • Serve as a reference implementation / copy-paste skeleton for real modules.
-
-DO NOT include in production runs.
-"""
+"""Fake recon module that returns hardcoded findings for tests."""
 
 from __future__ import annotations
 

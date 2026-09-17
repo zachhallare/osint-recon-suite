@@ -1,10 +1,5 @@
-"""
-tests/test_whois_dns_module.py
-------------------------------
-Unit tests for WhoisDnsModule.
-
-All tests use mocked network calls — no live DNS or WHOIS queries.
-Fixtures are stored in tests/fixtures/ for reproducibility.
+"""Unit tests for WhoisDnsModule.
+All tests use mocked network calls instead of live DNS or WHOIS queries.
 """
 
 from __future__ import annotations
@@ -25,7 +20,7 @@ from osint_recon.modules.whois_dns_module import WhoisDnsModule
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
-# ── helpers ──────────────────────────────────────────────────────────────────
+
 
 def _make_rdata(text: str):
     """Build a minimal fake rdata object that returns text via to_text()."""
@@ -47,7 +42,7 @@ def _make_whois(data: dict):
     })
 
 
-# ── WHOIS tests ───────────────────────────────────────────────────────────────
+
 
 class TestWhoisLookup:
 
@@ -105,7 +100,7 @@ class TestWhoisLookup:
         assert any(f.finding_type == "whois_error" for f in findings)
 
 
-# ── DNS tests ─────────────────────────────────────────────────────────────────
+
 
 class TestDnsLookup:
 
@@ -156,11 +151,11 @@ class TestDnsLookup:
             raise dns.exception.Timeout()
         mod._resolver.resolve = fake_resolve
         findings = mod._dns_lookup("example.com")
-        # All timeouts — no findings, but no exception
+        # Timeouts should return an empty list without raising
         assert isinstance(findings, list)
 
 
-# ── Helper method tests ───────────────────────────────────────────────────────
+
 
 class TestHelpers:
 
@@ -191,11 +186,11 @@ class TestHelpers:
         assert WhoisDnsModule._expiry_risk("2099-12-31") == RiskLevel.INFO
 
 
-# ── Integration: full async run with mocked network ───────────────────────────
+
 
 @pytest.mark.anyio
 async def test_full_run_returns_module_result():
-    """End-to-end: run() wraps _run(), should produce SUCCESS with findings."""
+    """Run wraps the inner run method and returns success with findings."""
     mod = WhoisDnsModule()
 
     fixture = json.loads((FIXTURES / "whois_example_com.json").read_text())

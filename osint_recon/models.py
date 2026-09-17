@@ -1,9 +1,4 @@
-"""
-osint_recon/models.py
----------------------
-Shared data contracts used by every module and the orchestrator.
-Modules return a ModuleResult; the orchestrator assembles a ScanResult.
-"""
+"""Data models for scan findings and results."""
 
 from __future__ import annotations
 
@@ -26,25 +21,14 @@ class RiskLevel(str, Enum):
 class ModuleStatus(str, Enum):
     """Outcome of a module run."""
     SUCCESS = "success"
-    PARTIAL = "partial"   # some findings, but errors occurred
-    FAILED = "failed"     # module returned no data (network/API failure)
-    SKIPPED = "skipped"   # module was disabled for this run
+    PARTIAL = "partial"   # Some findings returned with errors
+    FAILED = "failed"     # Module failed without data
+    SKIPPED = "skipped"   # Module was disabled for this run
 
 
 @dataclass
 class Finding:
-    """
-    A single discrete piece of intelligence discovered by a module.
-
-    Attributes
-    ----------
-    module_name  : Name of the module that produced this finding.
-    finding_type : Category label (e.g. "dns_record", "subdomain", "exposed_file").
-    value        : The raw discovered value.
-    risk_level   : Severity classification.
-    extra        : Optional freeform dict for module-specific extra data.
-    discovered_at: UTC timestamp of discovery.
-    """
+    """Single finding discovered by a recon module."""
     module_name: str
     finding_type: str
     value: str
@@ -65,17 +49,7 @@ class Finding:
 
 @dataclass
 class ModuleResult:
-    """
-    Complete output of one module run.
-
-    Attributes
-    ----------
-    module_name : Unique identifier matching the module class.
-    status      : Outcome of the run.
-    findings    : List of Finding objects (empty on failure).
-    error       : Human-readable error message if status != SUCCESS.
-    duration_s  : Wall-clock seconds the module took to run.
-    """
+    """Outcome and findings from a single module run."""
     module_name: str
     status: ModuleStatus
     findings: list[Finding] = field(default_factory=list)
@@ -94,17 +68,7 @@ class ModuleResult:
 
 @dataclass
 class ScanResult:
-    """
-    Top-level container produced by the orchestrator after a full suite run.
-
-    Attributes
-    ----------
-    target      : The domain or entity that was scanned.
-    scan_run_id : DB primary key of the scan_runs row for this execution.
-    started_at  : UTC timestamp when the orchestrator started.
-    completed_at: UTC timestamp when all modules finished.
-    results     : Ordered list of ModuleResult objects.
-    """
+    """Overall scan results across all modules."""
     target: str
     scan_run_id: int
     started_at: datetime
@@ -113,7 +77,7 @@ class ScanResult:
 
     @property
     def all_findings(self) -> list[Finding]:
-        """Flatten findings across all modules into a single list."""
+        """Flatten all module findings into a single list."""
         return [f for r in self.results for f in r.findings]
 
     @property

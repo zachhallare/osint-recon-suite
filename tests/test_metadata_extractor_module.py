@@ -1,12 +1,4 @@
-"""
-tests/test_metadata_extractor_module.py
------------------------------------------
-Unit tests for MetadataExtractorModule.
-
-All network and file-system operations are mocked in-memory.
-Real pypdf / python-docx / Pillow are used against synthetic byte blobs
-to test the actual parsing paths — no live downloads required.
-"""
+"""Unit tests for MetadataExtractorModule using synthetic in-memory files."""
 
 from __future__ import annotations
 
@@ -21,7 +13,7 @@ import pytest
 from osint_recon.models import ModuleStatus, RiskLevel
 from osint_recon.modules.metadata_extractor_module import MetadataExtractorModule
 
-# ── Extension detection tests ─────────────────────────────────────────────────
+
 
 class TestDetectExt:
     def test_pdf_by_url(self):
@@ -43,7 +35,7 @@ class TestDetectExt:
         assert MetadataExtractorModule._detect_ext("https://x.com/f.pdf?v=1", "") == ".pdf"
 
 
-# ── GPS decimal conversion tests ──────────────────────────────────────────────
+
 
 class TestGpsDecimal:
     def test_north_east(self):
@@ -61,7 +53,7 @@ class TestGpsDecimal:
         assert MetadataExtractorModule._gps_decimal(None, "N") is None
 
 
-# ── PDF metadata extraction tests ────────────────────────────────────────────
+
 
 class TestExtractPdf:
 
@@ -106,7 +98,7 @@ class TestExtractPdf:
             pytest.skip("pypdf not available")
         mod = MetadataExtractorModule()
         findings = mod._extract_pdf("https://x.com/test.pdf", content)
-        # No metadata fields → no findings (empty string fields are skipped)
+        # Empty string metadata fields produce no findings
         assert isinstance(findings, list)
 
     def test_corrupt_bytes_returns_empty(self):
@@ -115,7 +107,7 @@ class TestExtractPdf:
         assert findings == []
 
 
-# ── Office document metadata extraction tests ─────────────────────────────────
+
 
 class TestExtractOffice:
 
@@ -151,9 +143,8 @@ class TestExtractOffice:
             pytest.skip("python-docx not available")
         mod = MetadataExtractorModule()
         findings = mod._extract_office("https://x.com/doc.docx", content, ".docx")
-        # author and last_modified_by are reliably set; company only appears in XML
-        # that Word writes — our in-memory document won't have the <company> element,
-        # so assert on the fields that ARE always present.
+        # Author and last modified fields are set reliably on generated docs
+        # Company only appears in XML saved by Word so we check present fields
         ftypes = {f.finding_type for f in findings}
         assert "office_author" in ftypes or "office_last_modified_by" in ftypes
 
@@ -174,7 +165,7 @@ class TestExtractOffice:
         assert findings == []
 
 
-# ── Image EXIF extraction tests ───────────────────────────────────────────────
+
 
 class TestExtractImage:
 
@@ -196,8 +187,7 @@ class TestExtractImage:
             pytest.skip("Pillow not available")
         mod = MetadataExtractorModule()
         findings = mod._extract_image("https://x.com/photo.jpg", content)
-        assert isinstance(findings, list)
-        # No EXIF = no findings (or empty)
+        # Images without EXIF metadata produce no findings
         assert all(f.finding_type != "image_gps_coordinates" for f in findings)
 
     def test_corrupt_bytes_returns_empty(self):
@@ -206,7 +196,7 @@ class TestExtractImage:
         assert isinstance(findings, list)
 
 
-# ── Download helper tests ─────────────────────────────────────────────────────
+
 
 class TestDownload:
 
@@ -250,11 +240,11 @@ class TestDownload:
         assert content is None
 
 
-# ── Full async run integration ────────────────────────────────────────────────
+
 
 @pytest.mark.anyio
 async def test_full_run_no_exposed_docs_returns_success():
-    """All HEAD requests 404 → SUCCESS with no findings."""
+    """Failed HEAD requests should return success with no findings."""
     mod = MetadataExtractorModule(extra_urls=[])
 
     head_resp = MagicMock()

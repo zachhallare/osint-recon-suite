@@ -1,1 +1,1 @@
-# osint_recon/modules package — each module lives here
+# Recon modules live in this package.

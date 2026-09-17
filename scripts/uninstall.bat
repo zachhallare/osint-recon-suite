@@ -1,17 +1,9 @@
 @echo off
-:: =============================================================================
-::  scripts\uninstall.bat — OSINT Recon Suite safe uninstaller (Windows)
-:: =============================================================================
-::
-::  MENU:
-::    Option 1 — Clean scan data only (reports, DB, logs, __pycache__, caches)
-::    Option 2 — Full removal (scan data + virtualenv + entire repository)
-::               Requires typing YES to confirm before deleting anything.
-::
-:: =============================================================================
+:: Uninstaller for OSINT Recon Suite on Windows.
+:: Allows cleaning scan data or fully removing the repository.
 setlocal EnableDelayedExpansion
 
-:: ── Locate repo root (one level above scripts\) ───────────────────────────────
+:: Go to repo root
 cd /d "%~dp0.."
 set "REPO_DIR=%CD%"
 
@@ -49,9 +41,7 @@ echo  [ERROR] Invalid choice. Please re-run and enter 1, 2, or Q.
 pause
 exit /b 1
 
-:: =============================================================================
 :opt_clean
-:: =============================================================================
 call :clean_scan_data
 echo.
 echo  [OK] Scan data cleaned. Source code and virtual environment are intact.
@@ -59,9 +49,7 @@ echo.
 pause
 exit /b 0
 
-:: =============================================================================
 :opt_full
-:: =============================================================================
 echo.
 echo  ================================================
 echo    WARNING: FULL REMOVAL
@@ -121,16 +109,12 @@ echo.
 pause
 exit /b 0
 
-:: =============================================================================
 :opt_quit
-:: =============================================================================
 echo  No changes made. Exiting.
 pause
 exit /b 0
 
-:: =============================================================================
-:: Subroutine: clean_scan_data
-:: =============================================================================
+:: Clean scan data subroutine
 :clean_scan_data
 echo  [->] Cleaning scan data ...
 echo.

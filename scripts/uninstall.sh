@@ -1,13 +1,6 @@
 #!/usr/bin/env bash
-# =============================================================================
-#  scripts/uninstall.sh — OSINT Recon Suite safe uninstaller (Linux / macOS)
-# =============================================================================
-#
-#  MENU:
-#    Option 1 — Clean scan data only (reports, database, logs, caches)
-#    Option 2 — Full removal (scan data + virtualenv + entire repository)
-#
-# =============================================================================
+# Uninstaller for OSINT Recon Suite on Linux or macOS.
+# Cleans scan data or removes the repository.
 
 set -euo pipefail
 
@@ -20,20 +13,18 @@ RST='\033[0m'
 
 info()    { echo -e "  ${GRN}[+]${RST} $*"; }
 warn()    { echo -e "  ${YLW}[!]${RST} $*"; }
-error()   { echo -e "  ${RED}[✗]${RST} $*" >&2; }
-success() { echo -e "  ${GRN}${BLD}[✓]${RST} $*"; }
+error()   { echo -e "  ${RED}[x]${RST} $*" >&2; }
+success() { echo -e "  ${GRN}${BLD}[v]${RST} $*"; }
 deleted() { echo -e "  ${RED}[-]${RST} Removed: $*"; }
 
-# ── Locate repo root (one level above scripts/) ───────────────────────────────
+# Go to repo root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$REPO_DIR"
 
 clear
 echo ""
-echo -e "${RED}${BLD}╔══════════════════════════════════════════════════════╗${RST}"
-echo -e "${RED}${BLD}║       OSINT Recon Suite  — Uninstaller               ║${RST}"
-echo -e "${RED}${BLD}╚══════════════════════════════════════════════════════╝${RST}"
+echo -e "${RED}${BLD}OSINT Recon Suite Uninstaller${RST}"
 echo ""
 echo -e "  Repository path: ${BLD}${REPO_DIR}${RST}"
 echo ""
@@ -47,16 +38,15 @@ echo ""
 echo "  [2]  Full removal (uninstall everything)"
 echo "       Removes: ALL of the above PLUS the virtual environment and the"
 echo "       entire repository directory."
-echo "       ⚠  This action is IRREVERSIBLE."
+echo "       WARNING: This action is permanent."
 echo ""
-echo "  [q]  Quit — make no changes"
+echo "  [q]  Quit - make no changes"
 echo ""
 read -rp "  Your choice [1 / 2 / q]: " CHOICE
 echo ""
 
-# ─────────────────────────────────────────────────────────────────────────────
 clean_scan_data() {
-    echo -e "  ${CYN}── Cleaning scan data ──────────────────────────────${RST}"
+    echo -e "  ${CYN}Cleaning scan data${RST}"
     echo ""
 
     local removed=0
@@ -66,7 +56,7 @@ clean_scan_data() {
         deleted "reports/*.html"
         (( removed++ )) || true
     else
-        info "reports/*.html — nothing to remove."
+        info "reports/*.html - nothing to remove."
     fi
 
     for f in "${REPO_DIR}/data/osint.db" \
@@ -78,13 +68,13 @@ clean_scan_data() {
             (( removed++ )) || true
         fi
     done
-    [[ $removed -eq 0 ]] && info "data/osint.db* — nothing to remove."
+    [[ $removed -eq 0 ]] && info "data/osint.db* - nothing to remove."
 
     if [[ -f "${REPO_DIR}/osint_recon.log" ]]; then
         rm -f "${REPO_DIR}/osint_recon.log"
         deleted "osint_recon.log"
     else
-        info "osint_recon.log — nothing to remove."
+        info "osint_recon.log - nothing to remove."
     fi
 
     if [[ -f "${REPO_DIR}/.env" ]]; then
@@ -104,14 +94,14 @@ clean_scan_data() {
         find "${REPO_DIR}" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
         deleted "__pycache__ directories ($cache_count found)"
     else
-        info "__pycache__ — nothing to remove."
+        info "__pycache__ - nothing to remove."
     fi
 
     if [[ -d "${REPO_DIR}/.pytest_cache" ]]; then
         rm -rf "${REPO_DIR}/.pytest_cache"
         deleted ".pytest_cache/"
     else
-        info ".pytest_cache — nothing to remove."
+        info ".pytest_cache - nothing to remove."
     fi
 
     [[ -f "${REPO_DIR}/venv/.install_stamp" ]] && rm -f "${REPO_DIR}/venv/.install_stamp"
@@ -120,15 +110,14 @@ clean_scan_data() {
     success "Scan data cleaned. Source code and virtual environment are intact."
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
 full_removal() {
     echo ""
-    echo -e "${RED}${BLD}  ⚠  FULL REMOVAL WARNING  ⚠${RST}"
+    echo -e "${RED}${BLD}  FULL REMOVAL WARNING  ${RST}"
     echo ""
     echo "  This will permanently delete:"
-    echo "    • All scan reports, database, and logs"
-    echo "    • The Python virtual environment (venv/)"
-    echo "    • The entire repository directory:"
+    echo "    * All scan reports, database, and logs"
+    echo "    * The Python virtual environment (venv/)"
+    echo "    * The entire repository directory:"
     echo -e "      ${BLD}${REPO_DIR}${RST}"
     echo ""
     echo -e "  ${YLW}Type exactly  yes  and press Enter to confirm:${RST}"
@@ -136,7 +125,7 @@ full_removal() {
 
     if [[ "$CONFIRM" != "yes" ]]; then
         echo ""
-        warn "Aborted — no files were deleted."
+        warn "Aborted - no files were deleted."
         exit 0
     fi
 
@@ -146,17 +135,17 @@ full_removal() {
     clean_scan_data
 
     echo ""
-    echo -e "  ${CYN}── Removing virtual environment ─────────────────────${RST}"
+    echo -e "  ${CYN}Removing virtual environment${RST}"
     echo ""
     if [[ -d "${REPO_DIR}/venv" ]]; then
         rm -rf "${REPO_DIR}/venv"
         deleted "venv/"
     else
-        info "venv/ — nothing to remove."
+        info "venv/ - nothing to remove."
     fi
 
     echo ""
-    echo -e "  ${CYN}── Removing repository directory ─────────────────────${RST}"
+    echo -e "  ${CYN}Removing repository directory${RST}"
     echo ""
     PARENT_DIR="$(dirname "${REPO_DIR}")"
     REPO_NAME="$(basename "${REPO_DIR}")"
@@ -172,8 +161,6 @@ full_removal() {
     echo "    git clone https://github.com/zachhallare/osint-recon-suite.git"
     echo ""
 }
-
-# ─────────────────────────────────────────────────────────────────────────────
 case "${CHOICE,,}" in
     1)  clean_scan_data ;;
     2)  full_removal ;;

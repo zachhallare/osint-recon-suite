@@ -1,51 +1,4 @@
-"""
-osint_recon/modules/metadata_extractor_module.py
--------------------------------------------------
-Step 5b of the Critical Path: File Metadata Extractor.
-
-What it does
-------------
-Takes a list of exposed document URLs (typically from DocumentScannerModule
-findings) and extracts embedded metadata from downloaded files:
-
-  PDF files  (via pypdf)
-    • Author, Creator, Producer, CreationDate, ModDate
-    • Subject, Keywords, Title
-
-  Office/DOCX/XLSX files  (via python-docx / openpyxl)
-    • core_properties: author, last_modified_by, company,
-      revision, created, modified
-
-  Image files — JPEG/PNG/TIFF  (via Pillow)
-    • EXIF data: GPS coordinates, Camera make/model, Software,
-      Artist, Copyright, DateTimeOriginal
-
-Risk classification
--------------------
-  HIGH   : GPS coordinates in image EXIF (location leakage)
-  MEDIUM : Author/creator names in docs (PII leakage)
-            Last-modified-by revealing internal usernames
-  LOW    : Software version, company name, creation timestamps
-  INFO   : Document title, keywords, producer string
-
-TRD requirements enforced
---------------------------
-  • Per-file download timeout: 15 seconds
-  • Per-file size limit: 10 MB (skip larger files)
-  • All errors caught per-file — one bad file does not abort the module
-
-Usage
------
-Can be run as a standalone module (it re-checks common document URLs),
-or extended in future to accept findings from DocumentScannerModule.
-
-Dependencies
-------------
-  httpx       — async download
-  pypdf       — PDF metadata
-  python-docx — DOCX metadata
-  Pillow      — image EXIF
-"""
+"""Extracts metadata from public PDFs, Office documents, and images."""
 
 from __future__ import annotations
 
@@ -63,16 +16,16 @@ from osint_recon.models import Finding, RiskLevel
 logger = logging.getLogger(__name__)
 
 _UTC = timezone.utc
-_MAX_FILE_BYTES = 10 * 1024 * 1024   # 10 MB — TRD requirement
-_TIMEOUT = 15.0                        # seconds — TRD requirement
+_MAX_FILE_BYTES = 10 * 1024 * 1024   # 10 MB maximum file size
+_TIMEOUT = 15.0                        # Request timeout in seconds
 
-# Extensions this module will attempt to analyse
+# Supported document extensions
 _PDF_EXTS    = {".pdf"}
 _OFFICE_EXTS = {".docx", ".xlsx", ".pptx", ".doc", ".xls", ".ppt"}
 _IMAGE_EXTS  = {".jpg", ".jpeg", ".png", ".tiff", ".tif", ".bmp", ".webp"}
 _ALL_EXTS    = _PDF_EXTS | _OFFICE_EXTS | _IMAGE_EXTS
 
-# Common document paths to scan for when running standalone
+# Common document paths to probe
 _DOC_PATHS = [
     # PDFs
     "sample.pdf", "brochure.pdf", "report.pdf", "invoice.pdf",
@@ -88,10 +41,7 @@ _SCHEMES = ["https", "http"]
 
 
 class MetadataExtractorModule(BaseModule):
-    """
-    Downloads publicly accessible document files and extracts metadata
-    that may reveal sensitive internal information.
-    """
+    """Downloads public document files and extracts embedded metadata."""
 
     MODULE_NAME = "metadata_extractor"
 
@@ -105,12 +55,8 @@ class MetadataExtractorModule(BaseModule):
         self._semaphore = asyncio.Semaphore(max_concurrent)
         self.extra_urls = extra_urls or []
 
-    # ------------------------------------------------------------------
-    # Main implementation
-    # ------------------------------------------------------------------
-
     async def _run(self, target: str) -> list[Finding]:
-        # Build URL list from common doc paths
+        # Build URL list from common document paths
         urls: list[str] = list(self.extra_urls)
         for scheme in _SCHEMES:
             for path in _DOC_PATHS:
@@ -124,12 +70,8 @@ class MetadataExtractorModule(BaseModule):
             findings.extend(result_list)
         return findings
 
-    # ------------------------------------------------------------------
-    # URL processing
-    # ------------------------------------------------------------------
-
     async def _process_url(self, url: str) -> list[Finding]:
-        """Download *url* if it exists and extract metadata from its content."""
+        """Download URL if reachable and extract metadata."""
         async with self._semaphore:
             content, content_type = await self._download(url)
 
@@ -151,15 +93,8 @@ class MetadataExtractorModule(BaseModule):
 
         return findings
 
-    # ------------------------------------------------------------------
-    # Download helper
-    # ------------------------------------------------------------------
-
     async def _download(self, url: str) -> tuple[bytes | None, str]:
-        """
-        HEAD-check then GET the file within size and timeout limits.
-        Returns (content_bytes, content_type) or (None, "") on skip/error.
-        """
+        """Check file size with HEAD then download content with GET."""
         try:
             async with httpx.AsyncClient(
                 timeout=self.timeout, follow_redirects=True, verify=False
@@ -184,7 +119,7 @@ class MetadataExtractorModule(BaseModule):
                 if ext is None:
                     return None, ""
 
-                # GET the content
+                # Download the file content
                 resp = await client.get(url)
                 if resp.status_code != 200:
                     return None, ""
@@ -205,10 +140,6 @@ class MetadataExtractorModule(BaseModule):
             logger.debug("[metadata_extractor] Error downloading %s: %s", url, exc)
 
         return None, ""
-
-    # ------------------------------------------------------------------
-    # PDF metadata extraction
-    # ------------------------------------------------------------------
 
     def _extract_pdf(self, url: str, content: bytes) -> list[Finding]:
         try:
@@ -251,10 +182,6 @@ class MetadataExtractorModule(BaseModule):
 
         return findings
 
-    # ------------------------------------------------------------------
-    # Office document metadata extraction (DOCX / XLSX / PPTX)
-    # ------------------------------------------------------------------
-
     def _extract_office(self, url: str, content: bytes, ext: str) -> list[Finding]:
         findings: list[Finding] = []
         try:
@@ -275,7 +202,7 @@ class MetadataExtractorModule(BaseModule):
 
             prop_map = {
                 "author":           ("office_author",           RiskLevel.MEDIUM, "Document author name"),
-                "last_modified_by": ("office_last_modified_by", RiskLevel.MEDIUM, "Last editor username (may be internal)"),
+                "last_modified_by": ("office_last_modified_by", RiskLevel.MEDIUM, "Last editor username"),
                 "title":            ("office_title",            RiskLevel.INFO,   "Document title"),
                 "subject":          ("office_subject",          RiskLevel.INFO,   "Document subject"),
                 "keywords":         ("office_keywords",         RiskLevel.INFO,   "Document keywords"),
@@ -296,8 +223,7 @@ class MetadataExtractorModule(BaseModule):
                 except Exception:
                     pass
 
-            # Company name lives in the XML but python-docx doesn't expose it as
-            # a top-level attribute — read from the core properties element directly.
+            # Extract company name from the raw XML properties
             try:
                 cp_elem = props._element  # lxml element
                 ns = "http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
@@ -316,16 +242,12 @@ class MetadataExtractorModule(BaseModule):
                                "note": "Company name in document properties"},
                     ))
             except Exception:
-                pass  # Best-effort; not all OOXML implementations include this element
+                pass  # Ignore missing company properties in some OOXML files
 
         except Exception as exc:  # noqa: BLE001
             logger.debug("[metadata_extractor] Office parse failed for %s: %s", url, exc)
 
         return findings
-
-    # ------------------------------------------------------------------
-    # Image EXIF extraction
-    # ------------------------------------------------------------------
 
     def _extract_image(self, url: str, content: bytes) -> list[Finding]:
         try:
@@ -347,7 +269,7 @@ class MetadataExtractorModule(BaseModule):
                 tag = TAGS.get(tag_id, str(tag_id))
                 decoded[tag] = value
 
-            # GPS coordinates — HIGH risk (physical location leakage)
+            # GPS coordinates in image EXIF
             if "GPSInfo" in decoded:
                 gps_raw = decoded["GPSInfo"]
                 gps_decoded = {GPSTAGS.get(k, k): v for k, v in gps_raw.items()}
@@ -369,11 +291,11 @@ class MetadataExtractorModule(BaseModule):
                             "longitude": lon,
                             "maps_url": f"https://maps.google.com/?q={lat},{lon}",
                             "source": "image_exif",
-                            "note": "GPS coordinates embedded in image — physical location leakage",
+                            "note": "GPS coordinates embedded in image",
                         },
                     ))
 
-            # Other interesting EXIF fields
+            # Common EXIF tags
             exif_fields = {
                 "Make":             ("image_camera_make",   RiskLevel.INFO,   "Camera manufacturer"),
                 "Model":            ("image_camera_model",  RiskLevel.INFO,   "Camera model"),
@@ -400,16 +322,9 @@ class MetadataExtractorModule(BaseModule):
 
         return findings
 
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
-
     @staticmethod
     def _detect_ext(url: str, content_type: str) -> str | None:
-        """
-        Determine the file extension from the URL path or Content-Type header.
-        Returns the extension string (e.g. ".pdf") or None if not recognised.
-        """
+        """Determine the file extension from URL path or Content-Type header."""
         from pathlib import PurePosixPath
         url_path = url.split("?")[0].split("#")[0]
         ext = PurePosixPath(url_path).suffix.lower()

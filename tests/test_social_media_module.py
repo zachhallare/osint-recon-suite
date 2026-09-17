@@ -1,10 +1,4 @@
-"""
-tests/test_social_media_module.py
-----------------------------------
-Unit tests for SocialMediaModule.
-
-All HTTP calls are mocked — no live network required.
-"""
+"""Unit tests for SocialMediaModule using mocked HTTP responses."""
 
 from __future__ import annotations
 
@@ -18,7 +12,7 @@ from osint_recon.models import ModuleStatus, RiskLevel
 from osint_recon.modules.social_media_module import SocialMediaModule
 
 
-# ── Mock helpers ──────────────────────────────────────────────────────────────
+
 
 def _resp(status: int, body=None, text: str | None = None) -> MagicMock:
     r = MagicMock()
@@ -36,9 +30,8 @@ def _resp(status: int, body=None, text: str | None = None) -> MagicMock:
 
 
 class _RouterClient:
-    """
-    Fake async httpx.AsyncClient that routes URLs to canned responses.
-    Routes are matched by substring; longer (more specific) patterns win.
+    """Fake async client that routes URLs to canned responses.
+    Routes match by substring, with longer patterns taking priority.
     """
     def __init__(self, routes: dict, default_status: int = 404):
         # Sort routes by key length descending so more-specific patterns match first.
@@ -61,7 +54,7 @@ class _RouterClient:
         return self._default
 
 
-# ── slugify tests ─────────────────────────────────────────────────────────────
+
 
 class TestSlugify:
     def test_simple_domain(self):
@@ -88,7 +81,7 @@ class TestSlugify:
         assert no_dot  # at least one slug without dot
 
 
-# ── _probe_platform tests ─────────────────────────────────────────────────────
+
 
 class TestProbePlatform:
 
@@ -163,7 +156,7 @@ class TestProbePlatform:
         assert finding.finding_type == "social_profile"
 
 
-# ── _gh_get tests ─────────────────────────────────────────────────────────────
+
 
 class TestGhGet:
 
@@ -191,7 +184,7 @@ class TestGhGet:
         assert result is None
 
 
-# ── _enrich_github tests ──────────────────────────────────────────────────────
+
 
 class TestEnrichGitHub:
 
@@ -324,7 +317,7 @@ class TestEnrichGitHub:
         assert findings == []
 
 
-# ── Full async run integration ────────────────────────────────────────────────
+
 
 @pytest.mark.anyio
 async def test_full_run_github_profile_found():
@@ -368,7 +361,7 @@ async def test_full_run_github_profile_found():
 
 @pytest.mark.anyio
 async def test_full_run_no_profiles_returns_success():
-    """All platforms return 404 -> SUCCESS with no findings."""
+    """Unmatched profile probes should return success with no findings."""
     mod = SocialMediaModule()
     with patch("httpx.AsyncClient", return_value=_RouterClient({}, default_status=404)):
         result = await mod.run("example.com")

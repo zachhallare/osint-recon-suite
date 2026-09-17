@@ -1,3 +1,2 @@
-# OSINT Recon Suite — Project Root
-# This file is intentionally minimal.
-# See osint_recon/ for all source code.
+# Minimal setup script for local installs.
+# Source code lives in osint_recon.

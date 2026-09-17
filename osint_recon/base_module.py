@@ -1,24 +1,4 @@
-"""
-osint_recon/base_module.py
---------------------------
-Abstract base class that every recon module must inherit from.
-
-Contract
---------
-  • Subclass must set CLASS attribute `MODULE_NAME: str`
-  • Subclass must implement `async def _run(self, target: str) -> list[Finding]`
-  • Call `super().run(target)` from the orchestrator — it handles timing,
-    error catching, and wrapping into a ModuleResult automatically.
-
-Example skeleton
-----------------
-    class WhoisModule(BaseModule):
-        MODULE_NAME = "whois"
-
-        async def _run(self, target: str) -> list[Finding]:
-            ...  # do the work
-            return [Finding(module_name=self.MODULE_NAME, ...)]
-"""
+"""Base class for all recon modules."""
 
 from __future__ import annotations
 
@@ -32,24 +12,12 @@ logger = logging.getLogger(__name__)
 
 
 class BaseModule(ABC):
-    """Abstract recon module.  Override ``_run`` in every concrete subclass."""
+    """Base recon module. Subclasses implement _run."""
 
     MODULE_NAME: str = "base"
 
-    # ------------------------------------------------------------------
-    # Public entry point (called by Orchestrator)
-    # ------------------------------------------------------------------
-
     async def run(self, target: str) -> ModuleResult:
-        """
-        Execute the module against *target* and return a ModuleResult.
-
-        Guarantees
-        ----------
-        • Never raises — all exceptions are caught and surfaced as a
-          FAILED ModuleResult so the orchestrator always keeps running.
-        • Always records wall-clock duration in ModuleResult.duration_s.
-        """
+        """Run the module against the target and catch any errors."""
         logger.info("[%s] Starting module for target=%r", self.MODULE_NAME, target)
         t_start = time.perf_counter()
 
@@ -64,8 +32,7 @@ class BaseModule(ABC):
                     self.MODULE_NAME, len(findings), duration,
                 )
             else:
-                # Module ran without error but found nothing — still SUCCESS,
-                # zero findings is valid (clean target).
+                # No findings returned but the run succeeded
                 status = ModuleStatus.SUCCESS
                 logger.info(
                     "[%s] Finished — no findings in %.2fs", self.MODULE_NAME, duration
@@ -90,23 +57,7 @@ class BaseModule(ABC):
                 duration_s=duration,
             )
 
-    # ------------------------------------------------------------------
-    # Abstract — implemented by each concrete module
-    # ------------------------------------------------------------------
-
     @abstractmethod
     async def _run(self, target: str) -> list[Finding]:
-        """
-        Perform the actual reconnaissance.
-
-        Parameters
-        ----------
-        target : Domain name or entity string supplied by the user.
-
-        Returns
-        -------
-        A (possibly empty) list of Finding objects.
-        Raise any exception on unrecoverable failure; BaseModule.run()
-        will catch it and produce a FAILED ModuleResult.
-        """
+        """Collect findings for the given target."""
         ...

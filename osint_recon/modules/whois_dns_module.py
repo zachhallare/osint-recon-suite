@@ -1,25 +1,4 @@
-"""
-osint_recon/modules/whois_dns_module.py
----------------------------------------
-Step 2 of the Critical Path: WHOIS + DNS Recon Module.
-
-What it does
-------------
-  • Performs a WHOIS lookup on the target domain
-  • Resolves DNS record types: A, AAAA, MX, NS, TXT, CNAME, SOA
-  • Flags interesting TXT records (SPF, DMARC, DKIM, verification tokens)
-  • Returns all results as structured Finding objects
-
-Dependencies
-------------
-  python-whois   — WHOIS lookups
-  dnspython      — DNS resolution
-
-Error handling
---------------
-  Each sub-task (whois, each DNS record type) is wrapped independently.
-  A failure on one record type does not abort the others.
-"""
+"""Queries WHOIS records and resolves common DNS entries."""
 
 from __future__ import annotations
 
@@ -41,7 +20,7 @@ _UTC = timezone.utc
 # DNS record types to query
 _DNS_RECORD_TYPES = ["A", "AAAA", "MX", "NS", "TXT", "CNAME", "SOA"]
 
-# TXT record substrings that are interesting from a recon perspective
+# Common service verification markers in TXT records
 _INTERESTING_TXT = {
     "v=spf1": ("spf_record", RiskLevel.INFO),
     "v=dmarc1": ("dmarc_record", RiskLevel.INFO),
@@ -66,19 +45,11 @@ class WhoisDnsModule(BaseModule):
         self._resolver.timeout = timeout
         self._resolver.lifetime = timeout
 
-    # ------------------------------------------------------------------
-    # Main implementation
-    # ------------------------------------------------------------------
-
     async def _run(self, target: str) -> list[Finding]:
         findings: list[Finding] = []
         findings.extend(self._whois_lookup(target))
         findings.extend(self._dns_lookup(target))
         return findings
-
-    # ------------------------------------------------------------------
-    # WHOIS
-    # ------------------------------------------------------------------
 
     def _whois_lookup(self, target: str) -> list[Finding]:
         findings: list[Finding] = []
@@ -117,7 +88,7 @@ class WhoisDnsModule(BaseModule):
                     extra={"source": "whois"},
                 ))
 
-            # Expiry date — flag if expiring within 60 days
+            # Expiry date, flag if expiring within 60 days
             expiry = self._normalise_date(w.expiration_date)
             if expiry:
                 risk = self._expiry_risk(expiry)
@@ -128,7 +99,7 @@ class WhoisDnsModule(BaseModule):
                     risk_level=risk,
                     extra={
                         "source": "whois",
-                        "note": "Domain expiring soon — risk of hijack" if risk == RiskLevel.HIGH else "",
+                        "note": "Domain expiring soon" if risk == RiskLevel.HIGH else "",
                     },
                 ))
 
@@ -153,7 +124,7 @@ class WhoisDnsModule(BaseModule):
                     extra={"source": "whois"},
                 ))
 
-            # Emails exposed in WHOIS (privacy leak if not redacted)
+            # Look for exposed contact emails
             if w.emails:
                 emails = w.emails if isinstance(w.emails, list) else [w.emails]
                 for email in emails:
@@ -177,10 +148,6 @@ class WhoisDnsModule(BaseModule):
             ))
 
         return findings
-
-    # ------------------------------------------------------------------
-    # DNS
-    # ------------------------------------------------------------------
 
     def _dns_lookup(self, target: str) -> list[Finding]:
         findings: list[Finding] = []
@@ -216,11 +183,11 @@ class WhoisDnsModule(BaseModule):
                 findings.append(Finding(
                     module_name=self.MODULE_NAME,
                     finding_type="dns_nxdomain",
-                    value=f"{target} — domain does not exist (NXDOMAIN)",
+                    value=f"{target} - domain does not exist (NXDOMAIN)",
                     risk_level=RiskLevel.INFO,
                     extra={"record_type": rtype, "source": "dns"},
                 ))
-                break  # No point querying further record types
+                break  # Stop querying if domain does not exist
             except dns.exception.Timeout:
                 logger.warning("[whois_dns] DNS timeout for %s %s", rtype, target)
             except Exception as exc:  # noqa: BLE001
@@ -228,13 +195,9 @@ class WhoisDnsModule(BaseModule):
 
         return findings
 
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
-
     @staticmethod
     def _normalise_date(raw) -> str | None:
-        """Convert python-whois date field (str, datetime, or list) to ISO string."""
+        """Convert python-whois date field to ISO string."""
         if raw is None:
             return None
         if isinstance(raw, list):
@@ -245,12 +208,12 @@ class WhoisDnsModule(BaseModule):
 
     @staticmethod
     def _expiry_risk(expiry_str: str) -> RiskLevel:
-        """Flag HIGH if domain expires within 60 days."""
+        """Flag high risk if domain expires within 60 days."""
         try:
             expiry = datetime.strptime(expiry_str[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
             days_left = (expiry - datetime.now(timezone.utc)).days
             if days_left < 0:
-                return RiskLevel.HIGH   # already expired
+                return RiskLevel.HIGH  # Already expired
             if days_left < 60:
                 return RiskLevel.HIGH
             if days_left < 180:

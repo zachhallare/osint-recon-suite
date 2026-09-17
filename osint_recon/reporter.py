@@ -1,16 +1,4 @@
-"""
-osint_recon/reporter.py
------------------------
-Renders a ScanResult into a standalone HTML file using Jinja2.
-
-Usage
------
-    from osint_recon.reporter import Reporter
-
-    reporter = Reporter(output_dir="reports/")
-    path = reporter.render(scan_result)
-    print(f"Report saved to: {path}")
-"""
+"""Renders scan results to an HTML report using Jinja2."""
 
 from __future__ import annotations
 
@@ -26,7 +14,7 @@ from osint_recon.models import ModuleStatus, RiskLevel, ScanResult
 
 logger = logging.getLogger(__name__)
 
-# Resolve templates directory relative to this file
+# Template directory relative to this file
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 
@@ -47,11 +35,7 @@ class Reporter:
         self._env.globals["now"] = lambda: datetime.now(_UTC)
 
     def render(self, scan: ScanResult) -> Path:
-        """
-        Render the HTML report to disk and return the file path.
-
-        File is named:  reports/<target>_<scan_run_id>_<date>.html
-        """
+        """Render the HTML report to disk and return the file path."""
         template = self._env.get_template("report.html.j2")
 
         # Compute summary stats for the template
@@ -70,7 +54,7 @@ class Reporter:
             generated_at=datetime.now(_UTC),
         )
 
-        # Sanitise the filename
+        # Build safe filename
         safe_target = scan.target.replace(".", "_").replace("/", "_")
         date_str = scan.started_at.strftime("%Y%m%d_%H%M%S")
         filename = f"{safe_target}_run{scan.scan_run_id}_{date_str}.html"

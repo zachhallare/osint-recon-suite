@@ -1,9 +1,5 @@
-"""
-tests/test_reporter.py
-----------------------
-Tests for the HTML report generator.
-Verifies the rendered output contains expected structural elements
-without requiring a running browser.
+"""Tests for HTML report generation.
+Checks that rendered output includes expected target details and findings.
 """
 
 from datetime import datetime

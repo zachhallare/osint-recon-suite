@@ -1,42 +1,4 @@
-"""
-osint_recon/modules/social_media_module.py
--------------------------------------------
-Step 6 of the Critical Path: Social Media OSINT Collector.
-
-What it does (passive only)
-----------------------------
-  1. Username / profile probing
-     Derives candidate usernames from the target domain (e.g. "example.com"
-     -> "example") and checks 15+ public platforms via HTTP HEAD/GET:
-       GitHub, LinkedIn, Twitter/X, Instagram, Facebook, YouTube,
-       Reddit (subreddit + user), Keybase, Telegram, npmjs, PyPI,
-       Docker Hub, HackerNews (Algolia API)
-
-  2. GitHub API enrichment  (free tier, no key required — 60 req/hr)
-     If a GitHub org or user is found:
-       • Repo count, stars, forks, primary language
-       • Identifies repos with security-sensitive names (e.g. "infra",
-         "secrets", "ansible", "terraform", "k8s")
-       • Public member count
-
-  3. Email pattern detection from discovered social profiles
-     Flags patterns like "info@", "security@" that appear in bio / About
-
-Risk classification
--------------------
-  HIGH   : GitHub repo with security-sensitive name (infra/secrets/deploy)
-  MEDIUM : Confirmed social profile exists (reachable) for any platform
-  LOW    : GitHub org found but no sensitive repos
-  INFO   : Profile URL checked but returned non-200 / rate-limited
-
-Error handling
---------------
-  Each platform probe is independently wrapped — one failure does not abort.
-
-Dependencies
-------------
-  httpx   — async HTTP client
-"""
+"""Discovers social media accounts and public GitHub profiles."""
 
 from __future__ import annotations
 
@@ -55,7 +17,7 @@ logger = logging.getLogger(__name__)
 _HTTP_TIMEOUT = 12.0
 _MAX_CONCURRENT = 10
 
-# ── Sensitive GitHub repo name keywords ──────────────────────────────────────
+# Repo keywords that suggest sensitive infrastructure or secrets
 _SENSITIVE_REPO_KEYWORDS = {
     "infra", "infrastructure", "terraform", "ansible", "kubernetes", "k8s",
     "helm", "deploy", "deployment", "secrets", "vault", "credentials", "creds",
@@ -64,14 +26,8 @@ _SENSITIVE_REPO_KEYWORDS = {
     "pentest", "security", "firewall", "vpn", "ssh", "keys", "certificates",
 }
 
-# ── Platform definitions ──────────────────────────────────────────────────────
-# Each entry:
-#   (platform_name, url_template, check_method, success_status)
-# check_method: "head" or "get"
-# success_status: HTTP status codes that confirm the profile exists
+# Format: (platform_name, url_template, check_method, success_status)
 _PLATFORMS: list[tuple[str, str, str, set[int]]] = [
-    # Note: many platforms return 200 even for 404s, so we also check body
-    # for platforms that have that pattern.
     ("GitHub",       "https://github.com/{slug}",                          "head", {200}),
     ("Twitter/X",    "https://twitter.com/{slug}",                         "head", {200}),
     ("Instagram",    "https://www.instagram.com/{slug}/",                  "head", {200}),
@@ -90,7 +46,7 @@ _PLATFORMS: list[tuple[str, str, str, set[int]]] = [
     ("HackerNews",   "https://hacker-news.firebaseio.com/v0/user/{slug}.json", "get", {200}),
 ]
 
-# GitHub API endpoints — no key required for basic org/user queries
+# Public GitHub endpoints without authentication
 _GH_ORG_URL  = "https://api.github.com/orgs/{slug}"
 _GH_USER_URL = "https://api.github.com/users/{slug}"
 _GH_REPOS_URL = "https://api.github.com/orgs/{slug}/repos?per_page=100&type=public"
@@ -98,21 +54,16 @@ _GH_USER_REPOS_URL = "https://api.github.com/users/{slug}/repos?per_page=100&typ
 
 
 def _slugify(domain: str) -> list[str]:
-    """
-    Derive candidate username slugs from a domain name.
-    e.g. "example.com" -> ["example"]
-         "my-company.io" -> ["my-company", "mycompany"]
-         "acme.co.uk"   -> ["acme"]
-    """
-    # Strip protocol, path, and port if present
+    """Derive username candidates from a domain."""
+    # Strip protocol, path, and port
     d = domain.strip().lower()
     if "://" in d:
         d = d.split("://", 1)[1]
     d = d.split("/")[0].split(":")[0]
 
-    # Strip TLD(s) — keep leftmost label(s) only
+    # Strip TLDs to keep the core name
     parts = d.split(".")
-    # Common two-part TLDs (co.uk, com.au, etc.)
+    # Known two-part TLDs
     two_part_tlds = {"co.uk", "com.au", "co.nz", "co.za", "com.br", "org.uk"}
     if len(parts) >= 3 and f"{parts[-2]}.{parts[-1]}" in two_part_tlds:
         base = ".".join(parts[:-2])
@@ -122,7 +73,7 @@ def _slugify(domain: str) -> list[str]:
         base = parts[0]
 
     slugs = [base]
-    # Also add a version with hyphens removed for platforms that don't allow them
+    # Add variant without hyphens for strict platforms
     no_hyphen = base.replace("-", "").replace(".", "")
     if no_hyphen and no_hyphen != base:
         slugs.append(no_hyphen)
@@ -130,10 +81,7 @@ def _slugify(domain: str) -> list[str]:
 
 
 class SocialMediaModule(BaseModule):
-    """
-    Discovers social media presence and GitHub assets for a target domain.
-    All queries are passive — public profile URLs and unauthenticated API.
-    """
+    """Discovers public social media presence and GitHub assets."""
 
     MODULE_NAME = "social_media"
 
@@ -144,10 +92,6 @@ class SocialMediaModule(BaseModule):
     ) -> None:
         self.http_timeout = http_timeout
         self._semaphore = asyncio.Semaphore(max_concurrent)
-
-    # ------------------------------------------------------------------
-    # Main implementation
-    # ------------------------------------------------------------------
 
     async def _run(self, target: str) -> list[Finding]:
         findings: list[Finding] = []
@@ -161,7 +105,7 @@ class SocialMediaModule(BaseModule):
             follow_redirects=True,
             headers={"User-Agent": "OSINT-Recon-Suite/1.0 (passive research tool)"},
         ) as client:
-            # Platform probing
+            # Probe social platforms concurrently
             platform_tasks = [
                 self._probe_platform(client, platform, url_tpl, method, ok_statuses, slug)
                 for slug in slugs
@@ -172,7 +116,7 @@ class SocialMediaModule(BaseModule):
                 if finding is not None:
                     findings.append(finding)
 
-            # GitHub enrichment for confirmed GitHub profiles
+            # Enrich confirmed GitHub profiles
             gh_slugs_found = {
                 f.extra.get("slug") for f in findings
                 if f.finding_type == "social_profile"
@@ -184,10 +128,6 @@ class SocialMediaModule(BaseModule):
                 findings.extend(finding_list)
 
         return findings
-
-    # ------------------------------------------------------------------
-    # Platform probing
-    # ------------------------------------------------------------------
 
     async def _probe_platform(
         self,
@@ -209,8 +149,7 @@ class SocialMediaModule(BaseModule):
                 if resp.status_code not in ok_statuses:
                     return None
 
-                # HackerNews API returns {"error": "No such user."} as valid JSON
-                # with status 200 for missing users — filter that out
+                # HackerNews returns error JSON with HTTP 200 for missing users
                 if "firebaseio.com" in url and method == "get":
                     try:
                         data = resp.json()
@@ -241,10 +180,6 @@ class SocialMediaModule(BaseModule):
                 logger.debug("[social_media] Error probing %s: %s", url, exc)
 
         return None
-
-    # ------------------------------------------------------------------
-    # GitHub enrichment
-    # ------------------------------------------------------------------
 
     async def _enrich_github(self, client: httpx.AsyncClient, slug: str) -> list[Finding]:
         findings: list[Finding] = []
@@ -282,7 +217,7 @@ class SocialMediaModule(BaseModule):
             },
         ))
 
-        # Email in profile is always interesting
+        # Check profile for exposed email address
         profile_email = entity_data.get("email", "")
         if profile_email:
             findings.append(Finding(
@@ -322,7 +257,7 @@ class SocialMediaModule(BaseModule):
                 },
             ))
 
-        # Sensitive repos
+        # Flag repositories with sensitive names
         for repo in repos:
             name = repo.get("name", "").lower()
             desc = (repo.get("description") or "").lower()
@@ -351,12 +286,8 @@ class SocialMediaModule(BaseModule):
 
         return findings
 
-    # ------------------------------------------------------------------
-    # GitHub API helper
-    # ------------------------------------------------------------------
-
     async def _gh_get(self, client: httpx.AsyncClient, url: str) -> Any:
-        """GET a GitHub API URL and return parsed JSON, or None on error."""
+        """Fetch GitHub API endpoint and return parsed JSON."""
         async with self._semaphore:
             try:
                 resp = await client.get(
@@ -377,10 +308,6 @@ class SocialMediaModule(BaseModule):
             except Exception as exc:  # noqa: BLE001
                 logger.debug("[social_media] GitHub API error %s: %s", url, exc)
                 return None
-
-    # ------------------------------------------------------------------
-    # Helpers (exposed for testing)
-    # ------------------------------------------------------------------
 
     @staticmethod
     def slugify(domain: str) -> list[str]:

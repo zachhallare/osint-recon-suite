@@ -1,22 +1,4 @@
-"""
-osint_recon/database.py
------------------------
-SQLite persistence layer.
-
-Schema (matches implementation.md):
-  targets    (id, name, domain, created_at)
-  scan_runs  (id, target_id, started_at, completed_at, status)
-  findings   (id, scan_run_id, module_name, finding_type, value,
-               risk_level, extra_json, discovered_at)
-
-Usage
------
-    db = Database("data/osint.db")
-    target_id = db.upsert_target(name="example.com", domain="example.com")
-    run_id    = db.create_scan_run(target_id)
-    db.save_findings(run_id, module_result.findings)
-    db.complete_scan_run(run_id, status="success")
-"""
+"""SQLite storage for targets, scan runs, and findings."""
 
 from __future__ import annotations
 
@@ -32,10 +14,6 @@ _UTC = timezone.utc
 from osint_recon.models import Finding
 
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# DDL
-# ---------------------------------------------------------------------------
 
 _DDL = """
 PRAGMA journal_mode=WAL;
@@ -72,7 +50,7 @@ CREATE INDEX IF NOT EXISTS idx_findings_module ON findings(module_name);
 
 
 class Database:
-    """Thread-safe wrapper around a local SQLite database."""
+    """Wrapper around local SQLite database."""
 
     def __init__(self, db_path: str | Path = "data/osint.db") -> None:
         self.db_path = Path(db_path)
@@ -82,20 +60,12 @@ class Database:
         self._init_schema()
         logger.info("Database ready at %s", self.db_path)
 
-    # ------------------------------------------------------------------
-    # Schema
-    # ------------------------------------------------------------------
-
     def _init_schema(self) -> None:
         self._conn.executescript(_DDL)
         self._conn.commit()
 
-    # ------------------------------------------------------------------
-    # Targets
-    # ------------------------------------------------------------------
-
     def upsert_target(self, *, name: str, domain: str) -> int:
-        """Insert target if domain not seen before; return its id."""
+        """Insert target if the domain is new and return its id."""
         cur = self._conn.execute(
             "SELECT id FROM targets WHERE domain = ?", (domain,)
         )
@@ -108,12 +78,8 @@ class Database:
         self._conn.commit()
         return cur.lastrowid  # type: ignore[return-value]
 
-    # ------------------------------------------------------------------
-    # Scan runs
-    # ------------------------------------------------------------------
-
     def create_scan_run(self, target_id: int) -> int:
-        """Open a new scan_run row; return its id."""
+        """Start a new scan run and return its id."""
         started_at = datetime.now(_UTC).isoformat()
         cur = self._conn.execute(
             "INSERT INTO scan_runs (target_id, started_at) VALUES (?, ?)",
@@ -131,12 +97,8 @@ class Database:
         )
         self._conn.commit()
 
-    # ------------------------------------------------------------------
-    # Findings
-    # ------------------------------------------------------------------
-
     def save_findings(self, scan_run_id: int, findings: list[Finding]) -> None:
-        """Bulk-insert a list of Finding objects."""
+        """Save a list of findings to the database."""
         rows = [
             (
                 scan_run_id,
@@ -165,10 +127,6 @@ class Database:
             (scan_run_id,),
         )
         return cur.fetchall()
-
-    # ------------------------------------------------------------------
-    # Utility
-    # ------------------------------------------------------------------
 
     def close(self) -> None:
         self._conn.close()

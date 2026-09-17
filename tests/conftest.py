@@ -1,9 +1,6 @@
-"""
-tests/conftest.py
------------------
-Global pytest fixtures and configuration.
+"""Global pytest fixtures.
 
-Lock anyio tests to the asyncio backend only (trio is not installed).
+Locks anyio tests to asyncio since trio is not installed.
 """
 
 import pytest

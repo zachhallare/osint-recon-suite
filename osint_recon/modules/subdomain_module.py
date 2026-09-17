@@ -1,34 +1,4 @@
-"""
-osint_recon/modules/subdomain_module.py
----------------------------------------
-Step 3 of the Critical Path: Subdomain Enumerator.
-
-Sources (passive only, no active scanning)
-------------------------------------------
-  1. crt.sh  — Certificate Transparency log search (primary source)
-     Endpoint: https://crt.sh/?q=%25.<domain>&output=json
-     Returns every certificate ever issued for the domain and its subdomains.
-
-  2. DNS validation  — each discovered subdomain is resolved via DNS to
-     confirm it is currently live (A or AAAA record exists).
-
-Risk classification
--------------------
-  • Wildcard subdomains (*.domain.com)  → LOW   (broad surface, worth noting)
-  • Subdomain resolves to a live IP    → INFO   (confirmed live)
-  • Subdomain found but DNS fails      → INFO   (may be stale cert entry)
-  • Unusual / interesting names        → MEDIUM (e.g. dev, staging, admin, vpn, git)
-
-Error handling
---------------
-  • crt.sh timeout or non-200 → module returns with error finding, no crash.
-  • Per-subdomain DNS failures are silently skipped; only live ones flagged.
-
-Dependencies
-------------
-  httpx       — async HTTP client for crt.sh
-  dnspython   — live DNS validation of discovered subdomains
-"""
+"""Discovers subdomains via Certificate Transparency and DNS records."""
 
 from __future__ import annotations
 
@@ -48,10 +18,10 @@ logger = logging.getLogger(__name__)
 
 _UTC = timezone.utc
 
-# crt.sh endpoint — %25 is URL-encoded %
+# Query crt.sh with a wildcard pattern
 _CRTSH_URL = "https://crt.sh/?q=%25.{domain}&output=json"
 
-# Substrings in subdomain names that are operationally interesting
+# Keywords that suggest administrative or staging services
 _SENSITIVE_KEYWORDS = {
     "admin", "administrator", "portal", "dashboard",
     "dev", "development", "staging", "stage", "uat", "test", "qa",
@@ -66,15 +36,12 @@ _SENSITIVE_KEYWORDS = {
     "login", "auth", "sso", "oauth",
 }
 
-# Request timeout for crt.sh (seconds)
+# Request timeout for crt.sh in seconds
 _HTTP_TIMEOUT = 20.0
 
 
 class SubdomainModule(BaseModule):
-    """
-    Discovers subdomains via Certificate Transparency (crt.sh)
-    and validates live ones via DNS.
-    """
+    """Discovers subdomains via Certificate Transparency and validates live ones with DNS."""
 
     MODULE_NAME = "subdomain"
 
@@ -90,14 +57,10 @@ class SubdomainModule(BaseModule):
         self._resolver.lifetime = dns_timeout
         self._semaphore = asyncio.Semaphore(max_dns_concurrency)
 
-    # ------------------------------------------------------------------
-    # Main implementation
-    # ------------------------------------------------------------------
-
     async def _run(self, target: str) -> list[Finding]:
         findings: list[Finding] = []
 
-        # Step 1: fetch subdomains from crt.sh
+        # Fetch subdomains from crt.sh
         subdomains, fetch_error = await self._fetch_crtsh(target)
 
         if fetch_error:
@@ -119,7 +82,7 @@ class SubdomainModule(BaseModule):
             len(subdomains), target,
         )
 
-        # Step 2: DNS-validate all subdomains concurrently
+        # Check all subdomains concurrently with DNS
         dns_tasks = [self._check_subdomain(sd, target) for sd in subdomains]
         results = await asyncio.gather(*dns_tasks, return_exceptions=False)
 
@@ -129,16 +92,8 @@ class SubdomainModule(BaseModule):
 
         return findings
 
-    # ------------------------------------------------------------------
-    # crt.sh fetch
-    # ------------------------------------------------------------------
-
     async def _fetch_crtsh(self, domain: str) -> tuple[set[str], str | None]:
-        """
-        Query crt.sh for all certificate entries for *domain*.
-
-        Returns (set_of_subdomains, error_string_or_None).
-        """
+        """Query crt.sh for certificate records matching the domain."""
         url = _CRTSH_URL.format(domain=domain)
         logger.debug("[subdomain] Querying crt.sh: %s", url)
 
@@ -162,27 +117,20 @@ class SubdomainModule(BaseModule):
         subdomains: set[str] = set()
         for entry in data:
             name_value = entry.get("name_value", "")
-            # crt.sh returns multi-value SANs separated by newlines
+            # Split multi-value certificate names
             for name in name_value.splitlines():
                 name = name.strip().lower()
                 if not name or name == domain:
                     continue
-                # Strip leading wildcard marker for deduplication
+                # Strip leading wildcard marker
                 canonical = name.lstrip("*.")
                 if canonical.endswith(f".{domain}") or canonical == domain:
                     subdomains.add(name)
 
         return subdomains, None
 
-    # ------------------------------------------------------------------
-    # DNS validation
-    # ------------------------------------------------------------------
-
     async def _check_subdomain(self, subdomain: str, root_domain: str) -> Finding | None:
-        """
-        Resolve *subdomain* via DNS. Returns a Finding regardless of result.
-        Uses a semaphore to cap concurrent DNS queries.
-        """
+        """Resolve a subdomain and return a finding."""
         is_wildcard = subdomain.startswith("*.")
         lookup_name = subdomain.lstrip("*.") if is_wildcard else subdomain
 
@@ -217,7 +165,7 @@ class SubdomainModule(BaseModule):
         )
 
     async def _resolve(self, name: str) -> list[str]:
-        """Try to resolve *name* to IP addresses. Returns empty list on failure."""
+        """Resolve a hostname to IP addresses."""
         loop = asyncio.get_event_loop()
         try:
             answers = await loop.run_in_executor(
@@ -231,7 +179,7 @@ class SubdomainModule(BaseModule):
         except Exception as exc:  # noqa: BLE001
             logger.debug("[subdomain] DNS error for %s: %s", name, exc)
 
-        # Try AAAA if A fails
+        # Try IPv6 if IPv4 yields no records
         try:
             answers = await loop.run_in_executor(
                 None, lambda: self._resolver.resolve(name, "AAAA")
@@ -242,20 +190,16 @@ class SubdomainModule(BaseModule):
 
         return []
 
-    # ------------------------------------------------------------------
-    # Risk classification
-    # ------------------------------------------------------------------
-
     @staticmethod
     def _classify_risk(subdomain: str, live_ips: list[str], is_wildcard: bool) -> RiskLevel:
         if is_wildcard:
-            return RiskLevel.LOW  # wildcard cert = broad attack surface
+            return RiskLevel.LOW  # Wildcards suggest broader attack surface
 
         lookup_name = subdomain.lower()
         if any(kw in lookup_name for kw in _SENSITIVE_KEYWORDS):
-            return RiskLevel.MEDIUM  # interesting hostname (dev, admin, vpn…)
+            return RiskLevel.MEDIUM  # Flag sensitive names like admin or vpn
 
         if live_ips:
-            return RiskLevel.INFO  # confirmed live, nothing special
+            return RiskLevel.INFO  # Active host
 
-        return RiskLevel.INFO  # stale cert entry, not currently live
+        return RiskLevel.INFO  # Inactive host

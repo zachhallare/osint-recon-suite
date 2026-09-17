@@ -1,11 +1,4 @@
-"""
-tests/test_subdomain_module.py
-------------------------------
-Unit tests for SubdomainModule.
-
-All HTTP and DNS calls are mocked — no live network required.
-Fixtures stored in tests/fixtures/crtsh_example_com.json.
-"""
+"""Unit tests for SubdomainModule using mocked network calls."""
 
 from __future__ import annotations
 
@@ -24,7 +17,7 @@ from osint_recon.modules.subdomain_module import SubdomainModule
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
-# ── helpers ──────────────────────────────────────────────────────────────────
+
 
 def _load_crtsh_fixture() -> list[dict]:
     return json.loads((FIXTURES / "crtsh_example_com.json").read_text())
@@ -53,7 +46,7 @@ class _FakeAsyncClient:
         return self._response
 
 
-# ── _fetch_crtsh tests ────────────────────────────────────────────────────────
+
 
 class TestFetchCrtsh:
 
@@ -89,7 +82,7 @@ class TestFetchCrtsh:
 
     @pytest.mark.anyio
     async def test_multiline_san_parsed(self):
-        """test.example.com and qa.example.com are in one newline-joined SAN field."""
+        # Both names share a single newline-delimited SAN field
         mod = SubdomainModule()
         fixture = _load_crtsh_fixture()
         mock_resp = _make_mock_response(200, fixture)
@@ -131,7 +124,7 @@ class TestFetchCrtsh:
         assert subdomains == set()
 
 
-# ── _check_subdomain tests ────────────────────────────────────────────────────
+
 
 class TestCheckSubdomain:
 
@@ -190,7 +183,7 @@ class TestCheckSubdomain:
         assert finding.risk_level == RiskLevel.INFO
 
 
-# ── risk classification tests ─────────────────────────────────────────────────
+
 
 class TestClassifyRisk:
     def test_wildcard_always_low(self):
@@ -203,15 +196,15 @@ class TestClassifyRisk:
         assert SubdomainModule._classify_risk("www.example.com", ["1.2.3.4"], False) == RiskLevel.INFO
 
     def test_dead_plain_is_info(self):
-        # "blog.example.com" has no sensitive keywords — dead → INFO
+        # Non-sensitive dead subdomains stay at info risk
         assert SubdomainModule._classify_risk("blog.example.com", [], False) == RiskLevel.INFO
 
 
-# ── full async run integration ─────────────────────────────────────────────────
+
 
 @pytest.mark.anyio
 async def test_full_run_success():
-    """End-to-end: mocked crt.sh + DNS → valid ModuleResult."""
+    """Verify mocked crt.sh and DNS responses yield expected findings."""
     mod = SubdomainModule()
     fixture = _load_crtsh_fixture()
     mock_resp = _make_mock_response(200, fixture)
@@ -230,7 +223,7 @@ async def test_full_run_success():
 
 @pytest.mark.anyio
 async def test_full_run_crtsh_error_produces_error_finding():
-    """crt.sh failure → FAILED module status with error finding surfaced."""
+    """Verify crt.sh network failures record an error."""
     mod = SubdomainModule()
     client = MagicMock()
     client.__aenter__ = AsyncMock(return_value=client)
@@ -242,7 +235,7 @@ async def test_full_run_crtsh_error_produces_error_finding():
 
     # BaseModule wraps this into FAILED, or _run returns an error finding
     assert result.module_name == "subdomain"
-    # Either a FAILED status or an error-type finding — both are acceptable
+    # Either a failed status or an error finding is acceptable
     has_error = (
         result.status == ModuleStatus.FAILED
         or any(f.finding_type == "crtsh_error" for f in result.findings)

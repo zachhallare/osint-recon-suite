@@ -1,11 +1,4 @@
-"""
-tests/test_company_mapper_module.py
-------------------------------------
-Unit tests for CompanyMapperModule.
-
-All HTTP and DNS calls are mocked — no live network required.
-Fixtures stored in tests/fixtures/.
-"""
+"""Unit tests for CompanyMapperModule using mocked network responses."""
 
 from __future__ import annotations
 
@@ -27,7 +20,7 @@ TARGET = "example.com"
 TEST_IP = "93.184.216.34"
 
 
-# ── HTTP fake helpers ─────────────────────────────────────────────────────────
+
 
 def _mock_response(status_code: int = 200, body=None, text: str | None = None) -> MagicMock:
     resp = MagicMock()
@@ -61,7 +54,7 @@ class _AsyncClientCtx:
         return _mock_response(404)
 
 
-# ── _shodan_internetdb tests ──────────────────────────────────────────────────
+
 
 class TestShodanInternetDB:
 
@@ -160,7 +153,7 @@ class TestShodanInternetDB:
         assert findings == []
 
 
-# ── _geolocate_ip tests ───────────────────────────────────────────────────────
+
 
 class TestGeolocateIP:
 
@@ -214,7 +207,7 @@ class TestGeolocateIP:
         assert findings == []
 
 
-# ── _reverse_ip_lookup tests ──────────────────────────────────────────────────
+
 
 class TestReverseIPLookup:
 
@@ -265,7 +258,7 @@ class TestReverseIPLookup:
         assert findings == []
 
 
-# ── _fingerprint_stack tests ──────────────────────────────────────────────────
+
 
 class TestFingerprintStack:
 
@@ -308,7 +301,7 @@ class TestFingerprintStack:
         assert isinstance(findings, list)
 
 
-# ── Port classification tests ─────────────────────────────────────────────────
+
 
 class TestPortClassification:
     def test_redis_is_high(self):
@@ -330,7 +323,7 @@ class TestPortClassification:
         assert CompanyMapperModule._classify_port(12345) == RiskLevel.LOW
 
 
-# ── Full async run integration ────────────────────────────────────────────────
+
 
 @pytest.mark.anyio
 async def test_full_run_no_ips_returns_error_finding():

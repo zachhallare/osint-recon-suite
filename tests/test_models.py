@@ -1,8 +1,4 @@
-"""
-tests/test_models.py
---------------------
-Unit tests for shared data models — no network, no DB.
-"""
+"""Unit tests for shared data models without network or database dependencies."""
 
 from datetime import datetime
 

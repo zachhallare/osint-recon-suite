@@ -1,42 +1,4 @@
-"""
-osint_recon/modules/document_scanner_module.py
-----------------------------------------------
-Step 5a of the Critical Path: Public Document Exposure Scanner.
-
-What it does
-------------
-Probes the target web server for commonly exposed sensitive paths using
-HTTP HEAD requests (and GET where content is needed). No authentication
-bypass, no rate-limit evasion, no exploitation — only checking whether
-publicly accessible URLs return 200.
-
-Sensitive paths checked
------------------------
-  • Source control leakage : .git/HEAD, .git/config, .svn/entries
-  • Environment / secrets  : .env, .env.local, .env.production, .env.backup
-  • Config files           : web.config, .htaccess, phpinfo.php, config.php
-  • Database dumps         : *.sql, *.db, backup.zip, dump.tar.gz
-  • CMS config             : wp-config.php, wp-config.php.bak
-  • Cloud / deployment     : Dockerfile, docker-compose.yml, .travis.yml
-  • Misc sensitive         : .DS_Store, crossdomain.xml, security.txt, robots.txt
-
-Risk classification
--------------------
-  HIGH   : .git exposure, .env files, DB dumps, private key files
-  MEDIUM : phpinfo.php, config files, deployment files
-  LOW    : sitemap.xml, robots.txt, crossdomain.xml, security.txt
-  INFO   : anything else that returns 200
-
-TRD requirements enforced
---------------------------
-  • Per-file timeout: 15 seconds max (configurable)
-  • Per-file size limit: 10 MB max before skipping download
-  • All errors caught per-URL; one failure does not abort the scan
-
-Dependencies
-------------
-  httpx   — async HTTP client
-"""
+"""Scans targets for publicly exposed sensitive files and paths."""
 
 from __future__ import annotations
 
@@ -53,19 +15,18 @@ logger = logging.getLogger(__name__)
 
 _UTC = timezone.utc
 
-# Maximum per-file download size (bytes) — TRD requirement
+# Maximum per-file download size in bytes
 _MAX_FILE_BYTES = 10 * 1024 * 1024  # 10 MB
 
-# Per-request timeout — TRD requirement
+# Request timeout in seconds
 _REQUEST_TIMEOUT = 15.0
 
-# Concurrent probes (HEAD requests are fast; cap to avoid flooding)
+# Maximum concurrent requests
 _MAX_CONCURRENT = 15
 
-# ── Sensitive path definitions ────────────────────────────────────────────────
-# Each entry: (path, finding_type, risk_level, description)
+# Sensitive path definitions: (path, finding_type, risk_level, description)
 _SENSITIVE_PATHS: list[tuple[str, str, RiskLevel, str]] = [
-    # Source control — critical leakage
+    # Source control files
     (".git/HEAD",           "git_exposure",         RiskLevel.HIGH,   "Git repository HEAD exposed"),
     (".git/config",         "git_exposure",         RiskLevel.HIGH,   "Git config file exposed"),
     (".git/COMMIT_EDITMSG", "git_exposure",         RiskLevel.HIGH,   "Git commit message exposed"),
@@ -73,7 +34,7 @@ _SENSITIVE_PATHS: list[tuple[str, str, RiskLevel, str]] = [
     (".svn/wc.db",          "svn_exposure",         RiskLevel.HIGH,   "SVN working copy database exposed"),
     ("CVS/Root",            "cvs_exposure",         RiskLevel.HIGH,   "CVS repository root exposed"),
 
-    # Environment / secrets
+    # Environment and secrets
     (".env",                "env_file",             RiskLevel.HIGH,   ".env secrets file exposed"),
     (".env.local",          "env_file",             RiskLevel.HIGH,   ".env.local secrets file exposed"),
     (".env.production",     "env_file",             RiskLevel.HIGH,   ".env.production secrets file exposed"),
@@ -81,7 +42,7 @@ _SENSITIVE_PATHS: list[tuple[str, str, RiskLevel, str]] = [
     (".env.bak",            "env_file",             RiskLevel.HIGH,   ".env backup exposed"),
     ("config/.env",         "env_file",             RiskLevel.HIGH,   "Config .env file exposed"),
 
-    # Private keys / certificates
+    # Private keys and certificates
     ("id_rsa",              "private_key",          RiskLevel.HIGH,   "RSA private key exposed"),
     ("server.key",          "private_key",          RiskLevel.HIGH,   "Server private key exposed"),
     (".ssh/id_rsa",         "private_key",          RiskLevel.HIGH,   "SSH private key exposed"),
@@ -103,7 +64,7 @@ _SENSITIVE_PATHS: list[tuple[str, str, RiskLevel, str]] = [
     ("configuration.php",   "cms_config",           RiskLevel.HIGH,   "Joomla config exposed"),
     ("LocalSettings.php",   "cms_config",           RiskLevel.HIGH,   "MediaWiki config exposed"),
 
-    # Config / PHP info
+    # Config and PHP info
     ("phpinfo.php",         "php_info",             RiskLevel.MEDIUM, "PHP info page exposed"),
     ("php_info.php",        "php_info",             RiskLevel.MEDIUM, "PHP info page exposed"),
     ("info.php",            "php_info",             RiskLevel.MEDIUM, "PHP info page exposed"),
@@ -116,7 +77,7 @@ _SENSITIVE_PATHS: list[tuple[str, str, RiskLevel, str]] = [
     ("config.json",         "config_file",          RiskLevel.MEDIUM, "JSON config file exposed"),
     ("appsettings.json",    "config_file",          RiskLevel.MEDIUM, ".NET appsettings exposed"),
 
-    # Deployment / CI
+    # Deployment and CI
     ("Dockerfile",          "deployment_file",      RiskLevel.MEDIUM, "Dockerfile exposed"),
     ("docker-compose.yml",  "deployment_file",      RiskLevel.MEDIUM, "Docker Compose file exposed"),
     (".travis.yml",         "deployment_file",      RiskLevel.MEDIUM, "Travis CI config exposed"),
@@ -131,34 +92,30 @@ _SENSITIVE_PATHS: list[tuple[str, str, RiskLevel, str]] = [
     ("laravel.log",         "log_file",             RiskLevel.MEDIUM, "Laravel log exposed"),
     ("storage/logs/laravel.log", "log_file",        RiskLevel.MEDIUM, "Laravel storage log exposed"),
 
-    # Package manager / dependency manifests (reveals tech stack)
+    # Dependency manifests
     ("package.json",        "dependency_manifest",  RiskLevel.LOW,    "Node.js package.json exposed"),
     ("composer.json",       "dependency_manifest",  RiskLevel.LOW,    "PHP composer.json exposed"),
     ("requirements.txt",    "dependency_manifest",  RiskLevel.LOW,    "Python requirements.txt exposed"),
     ("Gemfile",             "dependency_manifest",  RiskLevel.LOW,    "Ruby Gemfile exposed"),
     ("yarn.lock",           "dependency_manifest",  RiskLevel.LOW,    "Yarn lock file exposed"),
 
-    # Misc / info
-    ("robots.txt",          "robots_txt",           RiskLevel.INFO,   "robots.txt — may reveal hidden paths"),
-    ("sitemap.xml",         "sitemap",              RiskLevel.INFO,   "sitemap.xml — URL enumeration"),
-    ("crossdomain.xml",     "crossdomain_policy",   RiskLevel.LOW,    "Flash/Adobe crossdomain policy"),
-    (".well-known/security.txt", "security_txt",    RiskLevel.INFO,   "security.txt — security contact info"),
-    ("humans.txt",          "humans_txt",           RiskLevel.INFO,   "humans.txt — may reveal staff names"),
-    (".DS_Store",           "ds_store",             RiskLevel.LOW,    ".DS_Store — macOS folder metadata"),
-    ("Thumbs.db",           "thumbs_db",            RiskLevel.LOW,    "Thumbs.db — Windows thumbnail cache"),
+    # Information files
+    ("robots.txt",          "robots_txt",           RiskLevel.INFO,   "robots.txt path list"),
+    ("sitemap.xml",         "sitemap",              RiskLevel.INFO,   "sitemap.xml URL list"),
+    ("crossdomain.xml",     "crossdomain_policy",   RiskLevel.LOW,    "Flash crossdomain policy"),
+    (".well-known/security.txt", "security_txt",    RiskLevel.INFO,   "security.txt contact info"),
+    ("humans.txt",          "humans_txt",           RiskLevel.INFO,   "humans.txt staff info"),
+    (".DS_Store",           "ds_store",             RiskLevel.LOW,    ".DS_Store folder metadata"),
+    ("Thumbs.db",           "thumbs_db",            RiskLevel.LOW,    "Thumbs.db thumbnail cache"),
     ("server-status",       "server_status",        RiskLevel.MEDIUM, "Apache server-status page"),
     ("server-info",         "server_info",          RiskLevel.MEDIUM, "Apache server-info page"),
 ]
 
-# ── URL schemes to try ────────────────────────────────────────────────────────
 _SCHEMES = ["https", "http"]
 
 
 class DocumentScannerModule(BaseModule):
-    """
-    Probes a target domain for commonly exposed sensitive files and paths.
-    Uses HEAD requests to check existence; stores URL + status in findings.
-    """
+    """Probes a target domain for commonly exposed files and paths."""
 
     MODULE_NAME = "document_scanner"
 
@@ -172,12 +129,8 @@ class DocumentScannerModule(BaseModule):
         self._semaphore = asyncio.Semaphore(max_concurrent)
         self.schemes = schemes or _SCHEMES
 
-    # ------------------------------------------------------------------
-    # Main implementation
-    # ------------------------------------------------------------------
-
     async def _run(self, target: str) -> list[Finding]:
-        # Build full URL list — try HTTPS first, then HTTP
+        # Try HTTPS first, then HTTP
         tasks = []
         for scheme in self.schemes:
             base_url = f"{scheme}://{target}"
@@ -187,23 +140,19 @@ class DocumentScannerModule(BaseModule):
 
         results = await asyncio.gather(*tasks, return_exceptions=False)
 
-        # Deduplicate: if a path was found on HTTPS, don't also report HTTP
+        # Prefer HTTPS results over HTTP for the same path
         seen_paths: set[str] = set()
         findings: list[Finding] = []
         for finding in results:
             if finding is None:
                 continue
-            # key on path portion (not full URL) to deduplicate across schemes
-            path_key = "/".join(finding.value.split("/")[3:])  # strip scheme+host
+            # Key on path portion to deduplicate across schemes
+            path_key = "/".join(finding.value.split("/")[3:])
             if path_key not in seen_paths:
                 seen_paths.add(path_key)
                 findings.append(finding)
 
         return findings
-
-    # ------------------------------------------------------------------
-    # Per-URL probe
-    # ------------------------------------------------------------------
 
     async def _probe_url(
         self,
@@ -213,16 +162,13 @@ class DocumentScannerModule(BaseModule):
         risk: RiskLevel,
         description: str,
     ) -> Finding | None:
-        """
-        Send a HEAD request to *url*. Return a Finding if the resource
-        exists (HTTP 200), None otherwise.
-        """
+        """Check if a URL returns HTTP 200 via HEAD request."""
         async with self._semaphore:
             try:
                 async with httpx.AsyncClient(
                     timeout=self.timeout,
-                    follow_redirects=False,  # don't follow — we want the exact status
-                    verify=False,            # ignore TLS errors on unusual domains
+                    follow_redirects=False,  # Keep redirect responses as is
+                    verify=False,            # Ignore TLS errors on self-signed certs
                 ) as client:
                     resp = await client.head(url)
 
@@ -230,8 +176,7 @@ class DocumentScannerModule(BaseModule):
                     content_length = resp.headers.get("content-length", "unknown")
                     content_type = resp.headers.get("content-type", "unknown")
 
-                    # Skip if file is over the size limit (don't even flag it to
-                    # avoid downloading later in the metadata extractor)
+                    # Skip files over the size limit
                     try:
                         if int(content_length) > _MAX_FILE_BYTES:
                             logger.info(
@@ -240,7 +185,7 @@ class DocumentScannerModule(BaseModule):
                             )
                             return None
                     except (ValueError, TypeError):
-                        pass  # content-length missing or non-numeric — proceed
+                        pass  # Proceed if content length is not available
 
                     logger.info("[document_scanner] FOUND: %s (HTTP 200)", url)
                     return Finding(

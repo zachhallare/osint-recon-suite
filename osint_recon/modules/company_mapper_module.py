@@ -1,48 +1,4 @@
-"""
-osint_recon/modules/company_mapper_module.py
---------------------------------------------
-Step 4 of the Critical Path: Company Attack Surface Mapper.
-
-What it does (passive only, no active scanning)
------------------------------------------------
-For each IP the target domain resolves to, this module:
-
-  1. Shodan InternetDB  (free, no API key)
-     https://internetdb.shodan.io/<ip>
-     → open ports, CPEs, known CVEs, hostnames, tags
-
-  2. IP geolocation + ASN  (ipapi.co, free, no key)
-     https://ipapi.co/<ip>/json/
-     → country, city, ASN number, ASN org name, hosting provider
-
-  3. Reverse IP lookup  (HackerTarget, free tier)
-     https://api.hackertarget.com/reverseiplookup/?q=<ip>
-     → other domains co-hosted on the same IP (shared hosting detection)
-
-  4. Technology stack fingerprinting  (passive, from DNS)
-     → email provider (Google Workspace, Microsoft 365, Zoho, Proofpoint…)
-       detected from MX records
-     → DNS provider detected from NS records
-     → CDN/WAF detected from CNAME/A record patterns
-
-Risk classification
--------------------
-  • Known CVE on host              → HIGH
-  • Critical/sensitive port open   → MEDIUM  (22/23/3389/5432/27017 etc.)
-  • Common port open               → LOW     (80/443/8080)
-  • Reverse IP finds co-hosted domains → LOW (shared hosting = wider blast radius)
-  • Geolocation / ASN info         → INFO
-
-Error handling
---------------
-  Each IP and each source API is wrapped independently.
-  Failure of one API does not abort the others.
-
-Dependencies
-------------
-  httpx      — async HTTP client
-  dnspython  — IP resolution (reuses the installed package)
-"""
+"""Maps attack surface including open ports, geolocation, and co-hosted domains."""
 
 from __future__ import annotations
 
@@ -63,30 +19,29 @@ logger = logging.getLogger(__name__)
 
 _UTC = timezone.utc
 
-# ── API endpoints ─────────────────────────────────────────────────────────────
 _SHODAN_INTERNETDB  = "https://internetdb.shodan.io/{ip}"
 _IPAPI_URL          = "https://ipapi.co/{ip}/json/"
 _HACKERTARGET_RIPLOOKUP = "https://api.hackertarget.com/reverseiplookup/?q={ip}"
 
 _HTTP_TIMEOUT = 15.0
 
-# ── Port risk classification ──────────────────────────────────────────────────
+# Port risk classifications
 _HIGH_RISK_PORTS = {
     21, 23, 3389, 5900, 5901,          # FTP, Telnet, RDP, VNC
     1433, 1521, 3306, 5432, 27017,     # MSSQL, Oracle, MySQL, Postgres, MongoDB
-    6379, 11211,                        # Redis, Memcached (often unauthenticated)
+    6379, 11211,                        # Redis, Memcached
     2375, 2376,                         # Docker API
     9200, 9300,                         # Elasticsearch
     8500,                               # Consul
 }
 _MEDIUM_RISK_PORTS = {
-    22, 25, 110, 143, 587, 993, 995,   # SSH, SMTP, POP3, IMAP variants
-    8080, 8443, 8888,                   # Alt web ports
-    4848, 7001, 7002,                   # GlassFish, WebLogic
-    9090, 9091,                         # Alternate admin
+    22, 25, 110, 143, 587, 993, 995,   # SSH, SMTP, POP3, IMAP
+    8080, 8443, 8888,                   # Alternate web ports
+    4848, 7001, 7002,                   # Application servers
+    9090, 9091,                         # Admin ports
 }
 
-# ── MX → email provider fingerprinting ───────────────────────────────────────
+# Known email providers from MX records
 _MX_PROVIDERS: list[tuple[str, str]] = [
     ("google",          "Google Workspace (Gmail)"),
     ("googlemail",      "Google Workspace (Gmail)"),
@@ -103,7 +58,7 @@ _MX_PROVIDERS: list[tuple[str, str]] = [
     ("mailgun",         "Mailgun"),
 ]
 
-# ── NS → DNS provider fingerprinting ─────────────────────────────────────────
+# Known DNS providers from NS records
 _NS_PROVIDERS: list[tuple[str, str]] = [
     ("awsdns",          "Amazon Route 53"),
     ("cloudflare",      "Cloudflare DNS"),
@@ -119,7 +74,7 @@ _NS_PROVIDERS: list[tuple[str, str]] = [
 
 
 class CompanyMapperModule(BaseModule):
-    """Maps a company's public internet attack surface from passive sources."""
+    """Maps attack surface including open ports, geolocation, and co-hosted domains."""
 
     MODULE_NAME = "company_mapper"
 
@@ -129,14 +84,10 @@ class CompanyMapperModule(BaseModule):
         self._resolver.timeout = dns_timeout
         self._resolver.lifetime = dns_timeout
 
-    # ------------------------------------------------------------------
-    # Main implementation
-    # ------------------------------------------------------------------
-
     async def _run(self, target: str) -> list[Finding]:
         findings: list[Finding] = []
 
-        # 1. Resolve target IPs
+        # Resolve target IP addresses
         ips = self._resolve_ips(target)
         if not ips:
             findings.append(Finding(
@@ -149,20 +100,16 @@ class CompanyMapperModule(BaseModule):
 
         logger.info("[company_mapper] Resolved %d IP(s) for %s: %s", len(ips), target, ips)
 
-        # 2. Per-IP queries (Shodan InternetDB + ipapi.co + reverse IP) — run concurrently
+        # Run IP lookups concurrently
         ip_tasks = [self._analyse_ip(ip, target) for ip in ips]
         ip_finding_lists = await asyncio.gather(*ip_tasks, return_exceptions=False)
         for fl in ip_finding_lists:
             findings.extend(fl)
 
-        # 3. Technology fingerprinting from DNS records
+        # Fingerprint email and DNS providers
         findings.extend(self._fingerprint_stack(target))
 
         return findings
-
-    # ------------------------------------------------------------------
-    # IP resolution (synchronous — runs on the main thread)
-    # ------------------------------------------------------------------
 
     def _resolve_ips(self, target: str) -> list[str]:
         ips: list[str] = []
@@ -174,11 +121,7 @@ class CompanyMapperModule(BaseModule):
                 pass
             except Exception as exc:
                 logger.debug("[company_mapper] DNS %s failed for %s: %s", rtype, target, exc)
-        return list(dict.fromkeys(ips))  # deduplicate, preserve order
-
-    # ------------------------------------------------------------------
-    # Per-IP analysis
-    # ------------------------------------------------------------------
+        return list(dict.fromkeys(ips))  # Deduplicate while preserving order
 
     async def _analyse_ip(self, ip: str, target: str) -> list[Finding]:
         findings: list[Finding] = []
@@ -203,17 +146,13 @@ class CompanyMapperModule(BaseModule):
         findings.extend(rip_f)
         return findings
 
-    # ------------------------------------------------------------------
-    # Shodan InternetDB  (free, no key)
-    # ------------------------------------------------------------------
-
     async def _shodan_internetdb(self, client: httpx.AsyncClient, ip: str) -> list[Finding]:
         findings: list[Finding] = []
         url = _SHODAN_INTERNETDB.format(ip=ip)
         try:
             resp = await client.get(url)
             if resp.status_code == 404:
-                return findings  # IP not in Shodan index — not an error
+                return findings  # IP not in Shodan database
             if resp.status_code != 200:
                 logger.debug("[company_mapper] Shodan InternetDB %s: HTTP %d", ip, resp.status_code)
                 return findings
@@ -243,18 +182,18 @@ class CompanyMapperModule(BaseModule):
                 extra={"ip": ip, "cve_id": cve, "source": "shodan_internetdb"},
             ))
 
-        # CPEs (software fingerprints)
+        # Software fingerprints
         cpes = data.get("cpes", [])
         if cpes:
             findings.append(Finding(
                 module_name=self.MODULE_NAME,
                 finding_type="software_cpe",
-                value=", ".join(cpes[:5]),  # cap at 5 to avoid clutter
+                value=", ".join(cpes[:5]),  # Limit to five items
                 risk_level=RiskLevel.INFO,
                 extra={"ip": ip, "cpes": cpes, "source": "shodan_internetdb"},
             ))
 
-        # Hostnames Shodan associates with the IP
+        # Hostnames associated with the IP
         for hostname in data.get("hostnames", []):
             findings.append(Finding(
                 module_name=self.MODULE_NAME,
@@ -264,7 +203,7 @@ class CompanyMapperModule(BaseModule):
                 extra={"ip": ip, "source": "shodan_internetdb"},
             ))
 
-        # Tags (e.g. "self-signed", "cloud")
+        # Shodan tags
         tags = data.get("tags", [])
         if tags:
             findings.append(Finding(
@@ -276,10 +215,6 @@ class CompanyMapperModule(BaseModule):
             ))
 
         return findings
-
-    # ------------------------------------------------------------------
-    # IP Geolocation + ASN  (ipapi.co, free)
-    # ------------------------------------------------------------------
 
     async def _geolocate_ip(self, client: httpx.AsyncClient, ip: str) -> list[Finding]:
         findings: list[Finding] = []
@@ -297,7 +232,7 @@ class CompanyMapperModule(BaseModule):
             logger.debug("[company_mapper] ipapi.co error for %s: %s", ip, data.get("reason"))
             return findings
 
-        # Build a concise location string
+        # Format location string
         city    = data.get("city", "")
         region  = data.get("region", "")
         country = data.get("country_name", "")
@@ -319,7 +254,7 @@ class CompanyMapperModule(BaseModule):
                 },
             ))
 
-        # ASN / hosting org
+        # ASN and hosting provider
         asn     = data.get("asn", "")
         org     = data.get("org", "")
         if asn or org:
@@ -332,10 +267,6 @@ class CompanyMapperModule(BaseModule):
             ))
 
         return findings
-
-    # ------------------------------------------------------------------
-    # Reverse IP lookup  (HackerTarget, free tier)
-    # ------------------------------------------------------------------
 
     async def _reverse_ip_lookup(
         self, client: httpx.AsyncClient, ip: str, target: str
@@ -351,7 +282,7 @@ class CompanyMapperModule(BaseModule):
             logger.warning("[company_mapper] Reverse IP lookup failed for %s: %s", ip, exc)
             return findings
 
-        # HackerTarget returns "error" or "API count exceeded" as plain text on failure
+        # HackerTarget returns plain text errors on failure
         if body.lower().startswith("error") or "api count" in body.lower():
             logger.debug("[company_mapper] HackerTarget rate-limited or error: %s", body[:80])
             return findings
@@ -362,7 +293,7 @@ class CompanyMapperModule(BaseModule):
         ]
 
         if len(co_hosted) > 1:
-            # More than just the target itself — shared hosting
+            # Shared hosting if multiple domains share this IP
             findings.append(Finding(
                 module_name=self.MODULE_NAME,
                 finding_type="shared_hosting",
@@ -373,7 +304,7 @@ class CompanyMapperModule(BaseModule):
                     "co_hosted_count": len(co_hosted),
                     "co_hosted_sample": co_hosted[:10],
                     "source": "hackertarget_reverseip",
-                    "note": "Shared hosting: a compromise of any co-hosted site could affect this IP",
+                    "note": "Shared hosting with other domains",
                 },
             ))
         elif co_hosted:
@@ -387,10 +318,6 @@ class CompanyMapperModule(BaseModule):
             ))
 
         return findings
-
-    # ------------------------------------------------------------------
-    # Technology stack fingerprinting (from DNS — no extra HTTP calls)
-    # ------------------------------------------------------------------
 
     def _fingerprint_stack(self, target: str) -> list[Finding]:
         findings: list[Finding] = []
@@ -437,10 +364,6 @@ class CompanyMapperModule(BaseModule):
             logger.debug("[company_mapper] NS fingerprint failed: %s", exc)
 
         return findings
-
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
 
     @staticmethod
     def _classify_port(port: int) -> RiskLevel:

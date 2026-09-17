@@ -1,16 +1,4 @@
-"""
-tests/test_document_scanner_module.py
---------------------------------------
-Unit tests for DocumentScannerModule.
-
-All HTTP calls are mocked. Tests verify:
-  - Paths that return HTTP 200 produce findings
-  - Risk classification is correct per path category
-  - Files over the size limit are skipped
-  - Non-200 responses produce no finding
-  - Network errors are silently handled
-  - Duplicate paths across HTTP/HTTPS are deduplicated
-"""
+"""Unit tests for DocumentScannerModule using mocked HTTP calls."""
 
 from __future__ import annotations
 
@@ -23,7 +11,7 @@ from osint_recon.models import ModuleStatus, RiskLevel
 from osint_recon.modules.document_scanner_module import DocumentScannerModule
 
 
-# ── HTTP mock helpers ────────────────────────────────────────────────────────
+
 
 def _make_head_response(status_code: int, content_length: str = "1024",
                         content_type: str = "text/plain") -> MagicMock:
@@ -49,7 +37,7 @@ class _FakeAsyncClient:
         return _make_head_response(self._default_status)
 
 
-# ── Basic probe tests ─────────────────────────────────────────────────────────
+
 
 class TestProbeUrl:
 
@@ -84,7 +72,7 @@ class TestProbeUrl:
     @pytest.mark.anyio
     async def test_oversized_file_skipped(self):
         mod = DocumentScannerModule(schemes=["https"])
-        # 11 MB content-length — over the 10 MB limit
+        # 11 MB payload exceeds the 10 MB limit
         resp = _make_head_response(200, content_length=str(11 * 1024 * 1024))
         with patch("httpx.AsyncClient", return_value=_FakeAsyncClient({"backup.zip": resp})):
             finding = await mod._probe_url(
@@ -122,7 +110,7 @@ class TestProbeUrl:
         assert finding is None
 
 
-# ── Risk classification validation ────────────────────────────────────────────
+
 
 class TestRiskClassification:
 
@@ -171,7 +159,7 @@ class TestRiskClassification:
         assert finding.risk_level == RiskLevel.MEDIUM
 
 
-# ── Full async run integration ────────────────────────────────────────────────
+
 
 @pytest.mark.anyio
 async def test_full_run_finds_exposed_git(self=None):

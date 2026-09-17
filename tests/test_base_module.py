@@ -1,8 +1,5 @@
-"""
-tests/test_base_module.py
--------------------------
-Tests for the BaseModule error-isolation guarantee:
-  a failing _run() must produce a FAILED ModuleResult, not propagate.
+"""Tests for BaseModule error isolation.
+A failing _run call should produce a failed result instead of raising.
 """
 
 import pytest
@@ -49,7 +46,7 @@ async def test_empty_module_returns_success_with_no_findings():
 
 @pytest.mark.anyio
 async def test_broken_module_does_not_raise():
-    """Critical: a crashing module must NOT propagate — orchestrator must keep running."""
+    """Make sure a failing module returns failed status without crashing the scan."""
     result = await BrokenModule().run("example.com")
     assert result.status == ModuleStatus.FAILED
     assert result.findings == []

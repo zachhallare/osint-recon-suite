@@ -1,8 +1,5 @@
-"""
-tests/test_database.py
-----------------------
-Tests for the SQLite persistence layer.
-Uses a temporary in-memory path so no files are left on disk after tests.
+"""Tests for the SQLite database layer.
+Uses a temporary directory to clean up after test runs.
 """
 
 import tempfile

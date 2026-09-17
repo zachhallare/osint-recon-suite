@@ -1,24 +1,4 @@
-"""
-osint_recon/orchestrator.py
----------------------------
-Drives the full recon pipeline for a single target.
-
-Responsibilities
-----------------
-  1. Validates / confirms the target (security guardrail from TRD).
-  2. Opens a scan_run row in SQLite.
-  3. Runs each enabled module (sequentially for MVP; async-ready).
-  4. Persists all findings.
-  5. Closes the scan_run row.
-  6. Returns a ScanResult ready for the report generator.
-
-Usage
------
-    from osint_recon.orchestrator import Orchestrator
-
-    orch = Orchestrator(db_path="data/osint.db")
-    scan = await orch.run("example.com")
-"""
+"""Coordinates recon modules and saves scan results."""
 
 from __future__ import annotations
 
@@ -42,14 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 def normalize_target(target: str) -> str:
-    """
-    Sanitizes user input into a clean hostname/domain.
-    Examples:
-        'https://pentest-ground.com:4280/' -> 'pentest-ground.com'
-        'http://example.com/path?foo=bar'  -> 'example.com'
-        'example.com:8080'                 -> 'example.com'
-        'example.com/'                     -> 'example.com'
-    """
+    """Strip protocol, port, and path from the target to get a clean domain."""
     t = target.strip()
     if "://" in t:
         parsed = urlparse(t)
@@ -61,16 +34,7 @@ def normalize_target(target: str) -> str:
 
 
 class Orchestrator:
-    """
-    Coordinates all recon modules and persists results.
-
-    Parameters
-    ----------
-    modules  : Ordered list of BaseModule instances to run.
-    db_path  : Path to the SQLite database file.
-    confirm  : When True (default), prompt the user to confirm the target
-               before any network calls — TRD security guardrail.
-    """
+    """Runs recon modules against a target and records findings."""
 
     def __init__(
         self,
@@ -82,23 +46,14 @@ class Orchestrator:
         self.db = Database(db_path)
         self.confirm = confirm
 
-    # ------------------------------------------------------------------
-    # Main entry point
-    # ------------------------------------------------------------------
-
     async def run(self, target: str) -> ScanResult:
-        """
-        Execute the full suite against *target*.
-
-        Returns a fully-populated ScanResult; never raises (module-level
-        failures are captured as FAILED ModuleResults).
-        """
+        """Run all configured modules against the target."""
         raw_target = target.strip()
         target = normalize_target(raw_target)
         if target != raw_target.lower():
             logger.info("Target normalized: '%s' -> '%s'", raw_target, target)
 
-        # Security guardrail: confirm before touching any external resource
+        # Prompt for confirmation before scanning
         if self.confirm and not self._confirm_target(target):
             logger.warning("Run aborted by user.")
             sys.exit(0)
@@ -108,7 +63,7 @@ class Orchestrator:
         logger.info("Modules enabled: %s", [m.MODULE_NAME for m in self.modules])
         logger.info("=" * 60)
 
-        # Persist target + open scan_run
+        # Create target record and start scan run
         target_id = self.db.upsert_target(name=target, domain=target)
         run_id = self.db.create_scan_run(target_id)
         started_at = datetime.now(_UTC)
@@ -119,16 +74,16 @@ class Orchestrator:
             started_at=started_at,
         )
 
-        # Run modules — sequential for MVP, but each module is async-ready
+        # Run each module in sequence
         for module in self.modules:
             result = await module.run(target)
             scan.results.append(result)
 
-            # Persist findings immediately so a crash mid-run still saves data
+            # Save findings immediately in case a later module fails
             if result.findings:
                 self.db.save_findings(run_id, result.findings)
 
-        # Close the scan_run
+        # Mark scan run complete
         scan.completed_at = datetime.now(_UTC)
         overall_status = self._overall_status(scan)
         self.db.complete_scan_run(run_id, status=overall_status)
@@ -144,16 +99,9 @@ class Orchestrator:
 
         return scan
 
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
-
     @staticmethod
     def _confirm_target(target: str) -> bool:
-        """
-        Print a clear warning and require explicit 'yes' before proceeding.
-        Prevents accidental scans of domains the user doesn't own.
-        """
+        """Prompt the user to confirm the target before scanning."""
         print()
         print("=" * 60)
         print("  ⚠️  OSINT RECON SUITE — TARGET CONFIRMATION")
@@ -169,7 +117,7 @@ class Orchestrator:
 
     @staticmethod
     def _overall_status(scan: ScanResult) -> str:
-        """Derive a top-level status string from individual module results."""
+        """Calculate overall scan status from individual module results."""
         statuses = {r.status.value for r in scan.results}
         if not statuses or statuses == {"failed"}:
             return "failed"

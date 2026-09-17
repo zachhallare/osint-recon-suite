@@ -1,15 +1,4 @@
-"""
-main.py
--------
-CLI entry point for the OSINT Recon Suite.
-
-Usage
------
-    python main.py example.com
-    python main.py example.com --mock          # use mock module only (no network)
-    python main.py example.com --no-confirm    # skip target confirmation prompt
-    python main.py example.com --output reports/
-"""
+"""CLI entry point for scanning domains."""
 
 from __future__ import annotations
 
@@ -21,8 +10,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# ── bootstrap ──────────────────────────────────────────────────────────────
-load_dotenv()  # loads .env if present (API keys, config overrides)
+load_dotenv()  # Load optional environment variables from .env
 
 logging.basicConfig(
     level=logging.INFO,
@@ -80,9 +68,6 @@ Only scan domains you own or have explicit written permission to test.
 async def main() -> None:
     args = build_arg_parser().parse_args()
 
-    # ── assemble module list ────────────────────────────────────────────────
-    # Step 1 (current): only MockModule wired up.
-    # Future modules will be imported and appended here.
     from osint_recon.modules.company_mapper_module import CompanyMapperModule
     from osint_recon.modules.document_scanner_module import DocumentScannerModule
     from osint_recon.modules.metadata_extractor_module import MetadataExtractorModule
@@ -95,7 +80,7 @@ async def main() -> None:
         modules = [MockModule()]
         logger.info("Running in MOCK mode -- no network calls will be made.")
     else:
-        # All 6 MVP modules active.
+        # Run all recon modules for live scans
         modules = [
             WhoisDnsModule(),
             SubdomainModule(),
@@ -105,7 +90,6 @@ async def main() -> None:
             SocialMediaModule(),
         ]
 
-    # ── run ─────────────────────────────────────────────────────────────────
     from osint_recon.orchestrator import Orchestrator
     from osint_recon.reporter import Reporter
 
@@ -117,7 +101,6 @@ async def main() -> None:
 
     scan = await orch.run(args.target)
 
-    # ── report ───────────────────────────────────────────────────────────────
     reporter = Reporter(output_dir=args.output)
     report_path = reporter.render(scan)
 

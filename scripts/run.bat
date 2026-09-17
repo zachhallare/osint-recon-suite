@@ -1,18 +1,13 @@
 @echo off
-:: =============================================================================
-::  scripts\run.bat — OSINT Recon Suite bootstrap launcher (Windows)
-:: =============================================================================
-::
-::  Usage (double-click in Explorer, or run from CMD / PowerShell):
-::    scripts\run.bat                        — interactive prompts
-::    scripts\run.bat example.com            — live scan
-::    scripts\run.bat example.com --mock     — mock mode (no network calls)
-::    scripts\run.bat example.com --no-confirm
-::
-:: =============================================================================
+:: Run the suite on Windows.
+:: Examples:
+::   scripts\run.bat
+::   scripts\run.bat example.com
+::   scripts\run.bat example.com --mock
+::   scripts\run.bat example.com --no-confirm
 setlocal EnableDelayedExpansion
 
-:: ── Locate repo root (one level above this script) ───────────────────────────
+:: Go to the repo root
 cd /d "%~dp0.."
 set "REPO_DIR=%CD%"
 
@@ -22,7 +17,7 @@ echo    OSINT Recon Suite  ^|  Windows Launcher
 echo  ================================================
 echo.
 
-:: ── Python detection ──────────────────────────────────────────────────────────
+:: Find Python 3.11 or newer
 set "PYTHON="
 for %%C in (python python3) do (
     if "!PYTHON!"=="" (
@@ -51,7 +46,7 @@ if "!PYTHON!"=="" (
 
 for /f "delims=" %%V in ('!PYTHON! --version 2^>^&1') do echo  [+] Using !PYTHON!: %%V
 
-:: ── Virtual environment ───────────────────────────────────────────────────────
+:: Set up the virtual environment
 set "VENV_DIR=!REPO_DIR!\venv"
 
 if not exist "!VENV_DIR!\" (
@@ -64,10 +59,10 @@ if not exist "!VENV_DIR!\" (
     )
     echo  [+] Virtual environment created.
 ) else (
-    echo  [+] Virtual environment already exists — skipping creation.
+    echo  [+] Virtual environment already exists, skipping creation.
 )
 
-:: ── Activate venv ─────────────────────────────────────────────────────────────
+:: Activate the virtual environment
 call "!VENV_DIR!\Scripts\activate.bat"
 if !errorlevel! neq 0 (
     echo  [ERROR] Failed to activate virtual environment.
@@ -75,7 +70,7 @@ if !errorlevel! neq 0 (
     exit /b 1
 )
 
-:: ── Install / update dependencies ────────────────────────────────────────────
+:: Install dependencies if needed
 set "STAMP_FILE=!VENV_DIR!\.install_stamp"
 set "REQ_FILE=!REPO_DIR!\requirements.txt"
 set "NEEDS_INSTALL=0"
@@ -99,11 +94,11 @@ if "!NEEDS_INSTALL!"=="1" (
 
 echo.
 
-:: ── Ensure data\ and reports\ exist ──────────────────────────────────────────
+:: Create data and reports folders
 if not exist "!REPO_DIR!\data\" mkdir "!REPO_DIR!\data"
 if not exist "!REPO_DIR!\reports\" mkdir "!REPO_DIR!\reports"
 
-:: ── Argument handling / interactive prompt ────────────────────────────────────
+:: Prompt for inputs if no arguments were passed
 set "USER_ARGS=%*"
 
 if "!USER_ARGS!"=="" (
@@ -120,8 +115,8 @@ if "!USER_ARGS!"=="" (
 
     echo.
     echo  Select scan mode:
-    echo    [1] Live scan   — makes real HTTP/DNS requests (default)
-    echo    [2] Mock mode   — no network calls; safe pipeline test
+    echo    [1] Live scan - real HTTP and DNS requests (default)
+    echo    [2] Mock mode - no network calls for testing
     echo.
     set "MODE_CHOICE=1"
     set /p "MODE_CHOICE=  Your choice [1/2, default=1]: "
@@ -130,7 +125,7 @@ if "!USER_ARGS!"=="" (
     echo.
     echo  Show interactive confirmation before scanning?
     echo    [1] Yes (default)
-    echo    [2] No  — skip confirmation
+    echo    [2] No - skip confirmation
     echo.
     set "CONFIRM_CHOICE=1"
     set /p "CONFIRM_CHOICE=  Your choice [1/2, default=1]: "
@@ -143,7 +138,7 @@ if "!USER_ARGS!"=="" (
     set "ARGS=!USER_ARGS!"
 )
 
-:: ── Launch ────────────────────────────────────────────────────────────────────
+:: Run the scanner
 echo.
 echo  [+] Launching OSINT Recon Suite ...
 echo  [->] Command: python main.py !ARGS!

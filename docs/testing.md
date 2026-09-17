@@ -23,18 +23,19 @@ All tests run **fully offline** — no live DNS, WHOIS, crt.sh, Shodan, ipapi.co
 
 ---
 
-## Test Coverage (MVP Complete — 137 tests)
+## Test Coverage (162 tests)
 
 | Test File | Tests | What Is Covered |
 |-----------|-------|----------------|
-| test_models.py | 7 | Finding, ModuleResult, ScanResult dataclasses |
-| test_base_module.py | 3 | Error isolation, timing, status contracts |
+| test_models.py | 8 | Finding, ModuleResult, ScanResult dataclasses, ConfirmationMethod enum |
+| test_base_module.py | 4 | Error isolation, timing, status contracts |
 | test_database.py | 6 | SQLite upsert, scan run lifecycle, finding persistence |
-| test_reporter.py | 6 | HTML structure, risk badges, error module display |
-| test_whois_dns_module.py | 17 | WHOIS parsing, DNS record types, expiry risk, NXDOMAIN, timeouts |
+| test_confirmation_audit.py | 16 | CLI flag derivation, --mock vs --no-confirm precedence, confirmation_method DB persistence, legacy schema migration |
+| test_reporter.py | 6 | HTML structure, risk badges, error module display, auth badge rendering |
+| test_whois_dns_module.py | 19 | WHOIS parsing, DNS record types, expiry risk, NXDOMAIN, timeouts, date normalization |
 | test_subdomain_module.py | 21 | crt.sh parsing, SAN multi-value fields, wildcard detection, keyword classification, DNS live/dead |
 | test_company_mapper_module.py | 26 | Shodan InternetDB, ipapi.co, reverse IP, MX/NS fingerprinting, port risk |
 | test_document_scanner_module.py | 12 | HEAD probing, size-limit enforcement, risk classification, HTTPS/HTTP deduplication |
-| test_metadata_extractor_module.py | 15 | PDF/Office/image parsing, GPS decimal conversion, download size and timeout guard |
-| test_social_media_module.py | 24 | Slug derivation, platform probing, HackerNews null-body edge case, GitHub API enrichment, sensitive repo detection, org/user fallback |
-| **Total** | **137** | |
+| test_metadata_extractor_module.py | 23 | PDF/Office/image parsing, GPS decimal conversion, download size and timeout guard, extension detection |
+| test_social_media_module.py | 21 | Slug derivation, platform probing, HackerNews null-body edge case, GitHub API enrichment, sensitive repo detection, org/user fallback |
+| **Total** | **162** | |

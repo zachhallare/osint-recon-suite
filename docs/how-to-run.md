@@ -244,10 +244,22 @@ python main.py <target> [flags]
 |------|-------------|---------|
 | `target` | Domain name or hostname to scan (e.g. `example.com`) | *Required* |
 | `--mock` | Run mock module only; exercises orchestrator, database, and HTML reporting with zero network activity | `False` |
-| `--no-confirm` | Bypass the interactive target confirmation prompt (useful in CI pipelines or bash scripts) | `False` |
+| `--no-confirm` | Bypass interactive confirmation prompt (useful in CI / headless scripts). Scans are recorded with `bypassed` audit status; defaults to skipping HTML report unless `--html` is passed | `False` |
+| `--html` | Force HTML risk report generation without prompting | `None` (prompts interactively) |
+| `--no-html` | Skip HTML report generation entirely (terminal output only) | `None` |
 | `--db PATH` | Custom SQLite database file location | `data/osint.db` |
 | `--output DIR`| Output directory where the HTML risk report will be written | `reports/` |
 | `-h`, `--help` | Show command line help message and exit | - |
+
+### Scan Authorization Audit Trail
+
+To prevent accidental scanning and maintain an evidentiary audit trail for compliance, every scan run records how it was authorized into the SQLite `scan_runs.confirmation_method` column:
+
+| Authorization Status | Trigger | Description & Visibility |
+|----------------------|---------|--------------------------|
+| **`INTERACTIVE`** | Standard CLI invocation | Operator was prompted and explicitly confirmed target authorization. Displayed in green on CLI footer and HTML report. |
+| **`BYPASSED`** | `--no-confirm` flag | Confirmation prompt was skipped (e.g., CI/CD automation). Recorded for accountability; displayed in amber on CLI footer and HTML report. |
+| **`MOCK`** | `--mock` flag | Synthetic test scan with zero external network calls. Precedes `--no-confirm` to avoid misleading audit records; displayed in cyan. |
 
 ### Examples
 
@@ -255,13 +267,19 @@ python main.py <target> [flags]
 # 1. Quick test to verify complete pipeline without making any external calls:
 python main.py example.com --mock
 
-# 2. Standard scan on an authorized domain:
+# 2. Standard interactive scan (prompts to confirm authorization and generate HTML report):
 python main.py mycompany.com
 
-# 3. Automated scan saving to a specific report folder:
-python main.py mycompany.com --no-confirm --output /tmp/recon_reports/
+# 3. Interactive scan with automatic HTML report generation:
+python main.py mycompany.com --html
 
-# 4. Use an isolated database file:
+# 4. Terminal-only scan without generating HTML file:
+python main.py mycompany.com --no-html
+
+# 5. Automated CI / unattended scan saving to a specific report folder:
+python main.py mycompany.com --no-confirm --html --output /tmp/recon_reports/
+
+# 6. Use an isolated database file:
 python main.py mycompany.com --db /tmp/custom_scan.db
 ```
 

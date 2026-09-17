@@ -18,6 +18,9 @@
 
 - **Error isolation**: each module runs inside a typed try/except boundary; a crashing module returns a FAILED result without affecting the others.
 - **Persistent storage**: all findings stored in a local SQLite database with composite indexes, enabling future diff-based scanning.
+- **Authorization audit trail**: every scan records how it was initiated (`interactive`, `bypassed`, or `mock`) into SQLite `scan_runs.confirmation_method`. Unattended runs via `--no-confirm` leave a clear forensic log, while `--mock` runs are safely distinguished from live engagements.
+- **Streamlined Rich terminal UI**: animated progress indicators show active module execution without terminal clutter; scan completion displays a concise findings summary table and execution footer with color-coded authorization status.
+- **Flexible reporting pipeline**: interactive prompt or explicit CLI flags (`--html`, `--no-html`) allow operators to choose between rapid CLI-only triage and full HTML report generation.
 - **Async concurrency**: subdomain DNS validation, document scanning, metadata downloading, and social media probing all use asyncio with configurable semaphore limits.
 - **No paid API keys required**: all six modules use free, public endpoints.
 - **Report-first design**: the Jinja2 HTML template was built before any real modules; every module plugs into a proven output pipeline.
@@ -28,7 +31,7 @@
 
 The HTML report is a self-contained dark-mode page with:
 
-- Hero header: target name, scan ID, start time, total duration
+- Hero header: target name, scan ID, start time, total duration, and styled **Authorization Badge** (`INTERACTIVE`, `BYPASSED`, or `MOCK`)
 - Risk summary cards: count of High / Medium / Low / Info findings at a glance
 - Per-module tables: finding type, value displayed in monospace, risk badge, discovery timestamp
 - Collapsible extra data: expand any finding row to see the raw JSON metadata
@@ -76,10 +79,10 @@ The HTML report is a self-contained dark-mode page with:
 - **Passive only**: this tool never sends exploit traffic, attempts authentication, bypasses rate limits, or touches anything beyond publicly accessible data.
 - **Rate limiting**: free-tier APIs (HackerTarget, ipapi.co, GitHub unauthenticated at 60 req/hr) impose daily or per-hour limits. The tool handles all rate-limit errors gracefully per module.
 - **Social media platform blocks**: some platforms (Instagram, Facebook) aggressively block non-browser user agents even for public profiles. False negatives are expected.
-- **Shodan InternetDB**: covers only IPs that Shodan has previously scanned. Recently provisioned IPs may not appear.
+- **Shodan InternetDB data freshness**: queries Shodan's free InternetDB API, which acts as a passive historical cache. Open ports and vulnerabilities reflect past scan observations and may be stale or have false negatives compared to active network port scans.
+- **crt.sh availability**: relies on public Certificate Transparency logs via crt.sh. The service can experience intermittent rate limiting (HTTP 429) or latency during peak usage, and only exposes domains with issued public TLS certificates.
 - **Document scanner false positives**: a path returning HTTP 200 may serve a custom 404 page. Content-Type and Content-Length are checked, but full body validation is a post-MVP enhancement.
 - **WHOIS privacy redaction**: many domain registrations use privacy proxies; registrant contact fields may be redacted.
-- **crt.sh coverage**: only finds subdomains that had a public TLS certificate issued. Internal-only names, wildcard-only certs, or self-signed certs will not appear.
 - **Metadata extraction**: only analyses files with recognised extensions (PDF, DOCX, XLSX, JPEG, PNG, TIFF). Unusual content types require the URL to have a matching extension.
 - **pypdf vs PyMuPDF**: uses pure-Python pypdf to avoid the Visual Studio 2019 C compiler requirement on Windows. PDF metadata extraction is fully functional.
-- **No GUI**: the tool is CLI-only. A local web dashboard is listed as a post-MVP enhancement.
+- **No GUI**: the tool is CLI-only with an interactive Rich interface and standalone HTML reports. A local web dashboard is listed as a post-MVP enhancement.

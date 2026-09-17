@@ -24,7 +24,8 @@
 
 * 🐍 Python 3.11+
 * ⚡ asyncio - concurrent scanning without threads
-* 🗄️ SQLite - persistent scan history
+* 💻 Rich - animated terminal progress bars, stylized CLI UI & findings tables
+* 🗄️ SQLite - persistent scan history with confirmation audit trails
 * 🎨 Jinja2 - self-contained dark-mode HTML reports
 * 🔒 All free, public endpoints (crt.sh, Shodan InternetDB, ipapi.co, GitHub)
 
@@ -86,12 +87,17 @@ scripts\run.bat
 scripts\run.bat                           # Windows
 
 # Or pass arguments directly
-./scripts/run.sh example.com              # live scan
+./scripts/run.sh example.com              # live scan (prompts for HTML report)
 ./scripts/run.sh example.com --mock       # safe test - no network calls
-./scripts/run.sh example.com --no-confirm # skip confirmation prompt (CI / scripts)
+./scripts/run.sh example.com --html       # automatically generate HTML report
+./scripts/run.sh example.com --no-html    # skip HTML report (terminal summary only)
+./scripts/run.sh example.com --no-confirm # unattended / CI mode (audited as BYPASSED)
 ```
 
-The HTML report is saved to `reports/<target>_run<id>_<timestamp>.html` and opens in any browser. No server required.
+### Scan Features & Reporting
+- **Terminal UI**: Live animated progress indicators during scanning, followed by a streamlined findings summary table.
+- **Authorization Audit Trail**: Every run logs its authorization status (`INTERACTIVE`, `BYPASSED`, or `MOCK`) in SQLite, on the CLI footer, and as an audit badge in the HTML report.
+- **Optional HTML Report**: Generated on demand (`--html` flag or interactive prompt). Saved to `reports/<target>_run<id>_<timestamp>.html` and self-contained with no external server or CDN dependencies.
 
 **Safe first run (zero network activity):**
 ```bash
@@ -124,7 +130,6 @@ The interactive uninstaller menu offers:
 | [docs/testing.md](docs/testing.md) | Test coverage table and how to run the offline test suite |
 | [docs/project-structure.md](docs/project-structure.md) | Annotated directory and file tree |
 | [docs/original-contribution.md](docs/original-contribution.md) | Novel design decisions and implementations |
-| [implementation.md](implementation.md) | Original PRD, TRD, and database schema spec |
 
 ---
 

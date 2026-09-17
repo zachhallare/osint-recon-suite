@@ -26,11 +26,12 @@ CREATE TABLE IF NOT EXISTS targets (
 );
 
 CREATE TABLE IF NOT EXISTS scan_runs (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    target_id    INTEGER NOT NULL REFERENCES targets(id),
-    started_at   TEXT    NOT NULL,
-    completed_at TEXT,
-    status       TEXT    NOT NULL DEFAULT 'running'
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    target_id           INTEGER NOT NULL REFERENCES targets(id),
+    started_at          TEXT    NOT NULL,
+    completed_at        TEXT,
+    status              TEXT    NOT NULL DEFAULT 'running',
+    confirmation_method TEXT    NOT NULL DEFAULT 'interactive'
 );
 
 CREATE TABLE IF NOT EXISTS findings (
@@ -62,6 +63,13 @@ class Database:
 
     def _init_schema(self) -> None:
         self._conn.executescript(_DDL)
+        # Migrate existing databases that pre-date the confirmation_method column.
+        cols = {row[1] for row in self._conn.execute("PRAGMA table_info(scan_runs)")}
+        if "confirmation_method" not in cols:
+            self._conn.execute(
+                "ALTER TABLE scan_runs ADD COLUMN "
+                "confirmation_method TEXT NOT NULL DEFAULT 'interactive'"
+            )
         self._conn.commit()
 
     def upsert_target(self, *, name: str, domain: str) -> int:
@@ -78,15 +86,22 @@ class Database:
         self._conn.commit()
         return cur.lastrowid  # type: ignore[return-value]
 
-    def create_scan_run(self, target_id: int) -> int:
+    def create_scan_run(
+        self,
+        target_id: int,
+        confirmation_method: str = "interactive",
+    ) -> int:
         """Start a new scan run and return its id."""
         started_at = datetime.now(_UTC).isoformat()
         cur = self._conn.execute(
-            "INSERT INTO scan_runs (target_id, started_at) VALUES (?, ?)",
-            (target_id, started_at),
+            "INSERT INTO scan_runs (target_id, started_at, confirmation_method) VALUES (?, ?, ?)",
+            (target_id, started_at, confirmation_method),
         )
         self._conn.commit()
-        logger.debug("Created scan_run id=%d for target_id=%d", cur.lastrowid, target_id)
+        logger.debug(
+            "Created scan_run id=%d for target_id=%d (confirmation=%s)",
+            cur.lastrowid, target_id, confirmation_method,
+        )
         return cur.lastrowid  # type: ignore[return-value]
 
     def complete_scan_run(self, run_id: int, *, status: str = "success") -> None:

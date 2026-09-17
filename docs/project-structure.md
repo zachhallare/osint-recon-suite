@@ -9,7 +9,6 @@ osint-recon-suite/
 ├── requirements.txt        All Python dependencies (pip install -r requirements.txt).
 ├── pytest.ini              Configures pytest to use asyncio backend. Required for async tests.
 ├── .gitignore              Excludes secrets (.env), reports, databases, and caches from git.
-├── implementation.md       Original spec: PRD, TRD, database schema, and 6-step critical path.
 ├── README.md               Project overview and quickstart.
 │
 │  scripts/                 Launchers and uninstallers — kept out of the repo root.
@@ -35,26 +34,30 @@ osint-recon-suite/
 
 osint_recon/                The main Python package.
 │
-├── models.py               Three shared data structures:
-│                             Finding      — one piece of intelligence (type, value, risk, extras).
-│                             ModuleResult — what a module returns: status, findings, duration.
-│                             ScanResult   — wraps all ModuleResults from a complete run.
+├── models.py               Shared data structures & enums:
+│                             Finding            — one piece of intelligence (type, value, risk, extras).
+│                             ModuleResult       — what a module returns: status, findings, duration.
+│                             ScanResult         — wraps all ModuleResults from a complete run.
+│                             ConfirmationMethod — INTERACTIVE, BYPASSED, or MOCK authorization enum.
 │
 ├── base_module.py          Abstract base class all recon modules inherit from.
 │                           Handles try/except boundary, timing, and logging automatically.
+│
+├── console.py              Rich terminal UI utilities: stylized banner, animated progress bars,
+│                           streamlined findings summary table, and scan footer with auth badge.
 │
 ├── orchestrator.py         Runs each module in sequence, persists results, triggers the reporter.
 │                           Shows the confirmation prompt before any network calls are made.
 │
 ├── database.py             SQLite interface — three tables:
 │                             targets    — one row per domain scanned.
-│                             scan_runs  — one row per execution.
+│                             scan_runs  — one row per execution (including confirmation_method audit trail).
 │                             findings   — every Finding from every run.
 │
 ├── reporter.py             Loads the Jinja2 template and writes the self-contained HTML report.
 │
 ├── templates/
-│   └── report.html.j2      Dark-mode HTML report template with risk cards and collapsible rows.
+│   └── report.html.j2      Dark-mode HTML report template with risk cards, collapsible rows, and auth badge.
 │
 └── modules/
     ├── mock_module.py                Returns synthetic findings for offline pipeline testing.
@@ -78,6 +81,7 @@ tests/                      All unit tests — fully offline, no live network ca
 ├── test_models.py
 ├── test_base_module.py
 ├── test_database.py
+├── test_confirmation_audit.py
 ├── test_reporter.py
 ├── test_whois_dns_module.py
 ├── test_subdomain_module.py

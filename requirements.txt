@@ -18,6 +18,9 @@ Jinja2>=3.1.4
 # Environment / secrets
 python-dotenv>=1.0.1
 
+# Terminal UI
+rich>=13.7.0
+
 # Testing
 pytest>=8.2.2
 pytest-asyncio>=0.23.7

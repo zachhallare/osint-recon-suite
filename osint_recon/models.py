@@ -26,6 +26,13 @@ class ModuleStatus(str, Enum):
     SKIPPED = "skipped"   # Module was disabled for this run
 
 
+class ConfirmationMethod(str, Enum):
+    """How the scan target was authorized before execution."""
+    INTERACTIVE = "interactive"  # User was prompted and confirmed
+    BYPASSED = "bypassed"        # --no-confirm flag was passed
+    MOCK = "mock"                # --mock flag; no real network calls
+
+
 @dataclass
 class Finding:
     """Single finding discovered by a recon module."""
@@ -74,6 +81,7 @@ class ScanResult:
     started_at: datetime
     completed_at: datetime | None = None
     results: list[ModuleResult] = field(default_factory=list)
+    confirmation_method: ConfirmationMethod = ConfirmationMethod.INTERACTIVE
 
     @property
     def all_findings(self) -> list[Finding]:

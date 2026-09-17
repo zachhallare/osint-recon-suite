@@ -16,7 +16,7 @@ from urllib.parse import urlparse
 
 from osint_recon.base_module import BaseModule
 from osint_recon.database import Database
-from osint_recon.models import ScanResult
+from osint_recon.models import ConfirmationMethod, ScanResult
 
 logger = logging.getLogger(__name__)
 
@@ -46,74 +46,75 @@ class Orchestrator:
         self.db = Database(db_path)
         self.confirm = confirm
 
-    async def run(self, target: str) -> ScanResult:
-        """Run all configured modules against the target."""
+    async def run(
+        self,
+        target: str,
+        progress=None,
+        task_id=None,
+        confirmation_method: ConfirmationMethod = ConfirmationMethod.INTERACTIVE,
+    ) -> ScanResult:
+        """Run all configured modules against the target.
+
+        Pass a rich.progress.Progress and a task_id to get per-module updates.
+        confirmation_method records how the scan was authorized.
+        """
         raw_target = target.strip()
         target = normalize_target(raw_target)
         if target != raw_target.lower():
             logger.info("Target normalized: '%s' -> '%s'", raw_target, target)
 
-        # Prompt for confirmation before scanning
         if self.confirm and not self._confirm_target(target):
             logger.warning("Run aborted by user.")
             sys.exit(0)
 
-        logger.info("=" * 60)
         logger.info("Starting OSINT Recon Suite for target: %s", target)
         logger.info("Modules enabled: %s", [m.MODULE_NAME for m in self.modules])
-        logger.info("=" * 60)
 
-        # Create target record and start scan run
         target_id = self.db.upsert_target(name=target, domain=target)
-        run_id = self.db.create_scan_run(target_id)
+        run_id = self.db.create_scan_run(
+            target_id,
+            confirmation_method=confirmation_method.value,
+        )
         started_at = datetime.now(_UTC)
 
         scan = ScanResult(
             target=target,
             scan_run_id=run_id,
             started_at=started_at,
+            confirmation_method=confirmation_method,
         )
 
-        # Run each module in sequence
         for module in self.modules:
+            if progress is not None and task_id is not None:
+                progress.update(task_id, description=f"[bold]{module.MODULE_NAME}")
+
             result = await module.run(target)
             scan.results.append(result)
 
-            # Save findings immediately in case a later module fails
             if result.findings:
                 self.db.save_findings(run_id, result.findings)
 
-        # Mark scan run complete
+            if progress is not None and task_id is not None:
+                progress.advance(task_id)
+
         scan.completed_at = datetime.now(_UTC)
         overall_status = self._overall_status(scan)
         self.db.complete_scan_run(run_id, status=overall_status)
 
-        logger.info("=" * 60)
         logger.info(
-            "Scan complete — %d module(s), %d finding(s), %.1fs total",
+            "Scan complete -- %d module(s), %d finding(s), %.1fs total",
             len(scan.results),
             len(scan.all_findings),
             scan.total_duration_s,
         )
-        logger.info("=" * 60)
 
         return scan
 
     @staticmethod
     def _confirm_target(target: str) -> bool:
-        """Prompt the user to confirm the target before scanning."""
-        print()
-        print("=" * 60)
-        print("  ⚠️  OSINT RECON SUITE — TARGET CONFIRMATION")
-        print("=" * 60)
-        print(f"  Target : {target}")
-        print()
-        print("  Only scan domains / entities you own or have explicit")
-        print("  written permission to test.  This tool is for passive")
-        print("  reconnaissance only.")
-        print("=" * 60)
-        answer = input("  Confirm scan? [yes/no]: ").strip().lower()
-        return answer == "yes"
+        """Use the Rich console helper to confirm the scan target."""
+        from osint_recon.console import confirm_target
+        return confirm_target(target)
 
     @staticmethod
     def _overall_status(scan: ScanResult) -> str:

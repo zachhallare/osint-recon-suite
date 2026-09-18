@@ -16,7 +16,7 @@ from urllib.parse import urlparse
 
 from osint_recon.base_module import BaseModule
 from osint_recon.database import Database
-from osint_recon.models import ConfirmationMethod, ScanResult
+from osint_recon.models import ConfirmationMethod, ScanResult, ModuleStatus
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,6 @@ class Orchestrator:
         self,
         target: str,
         progress=None,
-        task_id=None,
         confirmation_method: ConfirmationMethod = ConfirmationMethod.INTERACTIVE,
     ) -> ScanResult:
         """Run all configured modules against the target.
@@ -84,18 +83,33 @@ class Orchestrator:
             confirmation_method=confirmation_method,
         )
 
-        for module in self.modules:
-            if progress is not None and task_id is not None:
-                progress.update(task_id, description=f"[bold]{module.MODULE_NAME}")
+        db_lock = asyncio.Lock()
+
+        async def _execute_module(module: BaseModule) -> None:
+            mod_task_id = None
+            if progress is not None:
+                # total=None makes it pulse/indeterminate until complete
+                mod_task_id = progress.add_task(f"[cyan]Running {module.MODULE_NAME}...", total=None)
 
             result = await module.run(target)
-            scan.results.append(result)
+            
+            async with db_lock:
+                try:
+                    scan.results.append(result)
+                    if result.findings:
+                        self.db.save_findings(run_id, result.findings)
+                except Exception as exc:
+                    logger.error("[%s] Failed to persist findings to DB: %s", module.MODULE_NAME, exc)
+                    result.status = ModuleStatus.FAILED
+                    result.error = f"Database persistence error: {exc}"
 
-            if result.findings:
-                self.db.save_findings(run_id, result.findings)
+            if progress is not None and mod_task_id is not None:
+                if result.status == ModuleStatus.FAILED:
+                    progress.update(mod_task_id, description=f"[red]Failed: {module.MODULE_NAME}[/red]", total=1, completed=1)
+                else:
+                    progress.update(mod_task_id, description=f"[bold cyan]Done: {module.MODULE_NAME}[/bold cyan]", total=1, completed=1)
 
-            if progress is not None and task_id is not None:
-                progress.advance(task_id)
+        await asyncio.gather(*[_execute_module(m) for m in self.modules])
 
         scan.completed_at = datetime.now(_UTC)
         overall_status = self._overall_status(scan)

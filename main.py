@@ -138,14 +138,9 @@ async def main() -> None:
 
     # Run modules inside an animated progress bar.
     with make_progress() as progress:
-        task_id = progress.add_task(
-            description="Initialising...",
-            total=len(modules),
-        )
         scan = await orch.run(
             args.target,
             progress=progress,
-            task_id=task_id,
             confirmation_method=confirmation,
         )
 

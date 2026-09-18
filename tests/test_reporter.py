@@ -35,7 +35,7 @@ def sample_scan():
                     finding_type="mock_high",
                     value="high risk finding",
                     risk_level=RiskLevel.HIGH,
-                    extra={"url": "https://example.com/.git/HEAD"},
+                    extra={"url": "https://example.com/.git/HEAD", "disclaimer": "Test disclaimer string."},
                 ),
             ],
             duration_s=0.001,
@@ -93,3 +93,11 @@ def test_report_contains_risk_badges(tmp_path, sample_scan):
     # Both INFO and HIGH findings should be represented
     assert 'class="risk info"' in content
     assert 'class="risk high"' in content
+
+
+def test_report_shows_disclaimer(tmp_path, sample_scan):
+    reporter = Reporter(output_dir=tmp_path)
+    path = reporter.render(sample_scan)
+    content = path.read_text(encoding="utf-8")
+    assert "Test disclaimer string." in content
+    assert "⚠ Test disclaimer string." in content

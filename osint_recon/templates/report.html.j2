@@ -494,6 +494,9 @@
         </div>
         <div style="display:flex; align-items:center; gap:12px;">
           <span class="module-name">{{ result.module_name }}</span>
+          {% if result.source_status and result.source_status != 'crtsh_ok' %}
+            <span class="status-badge partial">Source: {{ result.source_status }}</span>
+          {% endif %}
           <span class="status-badge {{ result.status.value }}">{{ result.status.value }}</span>
         </div>
       </div>
@@ -518,6 +521,11 @@
             <td>{{ finding.finding_type }}</td>
             <td class="value">
               {{ finding.value }}
+              {% if finding.extra and finding.extra.disclaimer %}
+                <div style="margin-top: 6px; padding: 6px 10px; background: rgba(255, 140, 0, 0.1); border-left: 2px solid var(--orange); color: var(--orange); font-size: 0.72rem; font-family: 'Inter', sans-serif; white-space: normal;">
+                  ⚠ {{ finding.extra.disclaimer }}
+                </div>
+              {% endif %}
               {% if finding.extra %}
               <details>
                 <summary>extra data</summary>

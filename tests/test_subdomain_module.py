@@ -132,7 +132,7 @@ class TestCheckSubdomain:
     async def test_live_subdomain_has_ips(self):
         mod = SubdomainModule()
         with patch.object(mod, "_resolve", return_value=["1.2.3.4"]):
-            finding = await mod._check_subdomain("www.example.com", "example.com")
+            finding = await mod._check_subdomain("www.example.com", "example.com", "crt.sh")
         assert finding is not None
         assert finding.extra["live"] is True
         assert "1.2.3.4" in finding.extra["resolved_ips"]
@@ -141,7 +141,7 @@ class TestCheckSubdomain:
     async def test_dead_subdomain_not_live(self):
         mod = SubdomainModule()
         with patch.object(mod, "_resolve", return_value=[]):
-            finding = await mod._check_subdomain("old.example.com", "example.com")
+            finding = await mod._check_subdomain("old.example.com", "example.com", "crt.sh")
         assert finding is not None
         assert finding.extra["live"] is False
 
@@ -149,7 +149,7 @@ class TestCheckSubdomain:
     async def test_wildcard_is_low_risk(self):
         mod = SubdomainModule()
         with patch.object(mod, "_resolve", return_value=[]):
-            finding = await mod._check_subdomain("*.example.com", "example.com")
+            finding = await mod._check_subdomain("*.example.com", "example.com", "crt.sh")
         assert finding.risk_level == RiskLevel.LOW
         assert finding.extra["wildcard"] is True
 
@@ -157,7 +157,7 @@ class TestCheckSubdomain:
     async def test_sensitive_keyword_is_medium_risk(self):
         mod = SubdomainModule()
         with patch.object(mod, "_resolve", return_value=["10.0.0.1"]):
-            finding = await mod._check_subdomain("admin.example.com", "example.com")
+            finding = await mod._check_subdomain("admin.example.com", "example.com", "crt.sh")
         assert finding.risk_level == RiskLevel.MEDIUM
         assert "admin" in finding.extra.get("sensitive_keywords", [])
 
@@ -165,21 +165,21 @@ class TestCheckSubdomain:
     async def test_vpn_subdomain_is_medium_risk(self):
         mod = SubdomainModule()
         with patch.object(mod, "_resolve", return_value=["10.0.0.2"]):
-            finding = await mod._check_subdomain("vpn.example.com", "example.com")
+            finding = await mod._check_subdomain("vpn.example.com", "example.com", "crt.sh")
         assert finding.risk_level == RiskLevel.MEDIUM
 
     @pytest.mark.anyio
     async def test_dev_subdomain_is_medium_risk(self):
         mod = SubdomainModule()
         with patch.object(mod, "_resolve", return_value=[]):
-            finding = await mod._check_subdomain("dev.example.com", "example.com")
+            finding = await mod._check_subdomain("dev.example.com", "example.com", "crt.sh")
         assert finding.risk_level == RiskLevel.MEDIUM
 
     @pytest.mark.anyio
     async def test_plain_subdomain_is_info(self):
         mod = SubdomainModule()
         with patch.object(mod, "_resolve", return_value=["93.184.216.34"]):
-            finding = await mod._check_subdomain("www.example.com", "example.com")
+            finding = await mod._check_subdomain("www.example.com", "example.com", "crt.sh")
         assert finding.risk_level == RiskLevel.INFO
 
 
@@ -222,25 +222,49 @@ async def test_full_run_success():
 
 
 @pytest.mark.anyio
-async def test_full_run_crtsh_error_produces_error_finding():
-    """Verify crt.sh network failures record an error."""
+async def test_full_run_fallback_success():
+    """Verify crt.sh failures trigger Certspotter fallback."""
     mod = SubdomainModule()
-    client = MagicMock()
-    client.__aenter__ = AsyncMock(return_value=client)
-    client.__aexit__ = AsyncMock(return_value=None)
-    client.get = AsyncMock(side_effect=httpx.RequestError("network error"))
+    
+    # Mock _fetch_crtsh to fail
+    mod._fetch_crtsh = AsyncMock(return_value=(set(), "crt.sh timeout"))
+    # Mock _fetch_certspotter to succeed
+    mod._fetch_certspotter = AsyncMock(return_value=({"backup.example.com"}, None))
+    # Mock DNS
+    mod._resolve = AsyncMock(return_value=["1.1.1.1"])
 
-    with patch("httpx.AsyncClient", return_value=client):
-        result = await mod.run("example.com")
+    result = await mod.run("example.com")
 
-    # BaseModule wraps this into FAILED, or _run returns an error finding
+    assert result.status == ModuleStatus.SUCCESS
     assert result.module_name == "subdomain"
-    # Either a failed status or an error finding is acceptable
-    has_error = (
-        result.status == ModuleStatus.FAILED
-        or any(f.finding_type == "crtsh_error" for f in result.findings)
-    )
-    assert has_error
+    assert result.source_status == "crtsh_failed_fallback_used"
+    
+    finding_values = [f.value for f in result.findings]
+    assert "backup.example.com" in finding_values
+    
+    # Verify tagging
+    finding = result.findings[0]
+    assert finding.extra["source"] == "certspotter + dns"
+
+
+@pytest.mark.anyio
+async def test_full_run_both_sources_fail():
+    """Verify when both sources fail, we get error findings and all_sources_failed status."""
+    mod = SubdomainModule()
+    
+    mod._fetch_crtsh = AsyncMock(return_value=(set(), "crt.sh error"))
+    mod._fetch_certspotter = AsyncMock(return_value=(set(), "certspotter error"))
+
+    result = await mod.run("example.com")
+
+    # The module returns findings, so it finishes successfully, but source_status reflects failure.
+    assert result.status == ModuleStatus.SUCCESS
+    assert result.source_status == "all_sources_failed"
+    assert len(result.findings) == 2
+    
+    types = [f.finding_type for f in result.findings]
+    assert "crtsh_error" in types
+    assert "certspotter_error" in types
 
 
 @pytest.mark.anyio

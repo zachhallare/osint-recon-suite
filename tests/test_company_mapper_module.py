@@ -77,6 +77,21 @@ class TestShodanInternetDB:
         assert f"{TEST_IP}:443" in values
 
     @pytest.mark.anyio
+    async def test_shodan_findings_have_disclaimer(self):
+        mod = CompanyMapperModule()
+        async with httpx.AsyncClient() as client:
+            with patch.object(client, "get", new=AsyncMock(
+                return_value=_mock_response(200, self._load())
+            )):
+                findings = await mod._shodan_internetdb(client, TEST_IP)
+                
+        assert len(findings) > 0
+        from osint_recon.modules.company_mapper_module import _SHODAN_DISCLAIMER
+        for f in findings:
+            assert "disclaimer" in f.extra
+            assert f.extra["disclaimer"] == _SHODAN_DISCLAIMER
+
+    @pytest.mark.anyio
     async def test_high_risk_port_redis(self):
         mod = CompanyMapperModule()
         async with httpx.AsyncClient() as client:

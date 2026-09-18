@@ -62,6 +62,7 @@ class ModuleResult:
     findings: list[Finding] = field(default_factory=list)
     error: str | None = None
     duration_s: float = 0.0
+    source_status: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -70,6 +71,7 @@ class ModuleResult:
             "findings": [f.to_dict() for f in self.findings],
             "error": self.error,
             "duration_s": round(self.duration_s, 3),
+            "source_status": self.source_status,
         }
 
 

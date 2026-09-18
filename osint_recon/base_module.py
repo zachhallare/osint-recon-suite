@@ -38,23 +38,27 @@ class BaseModule(ABC):
                     "[%s] Finished — no findings in %.2fs", self.MODULE_NAME, duration
                 )
 
+            source_status = getattr(self, "source_status", None)
             return ModuleResult(
                 module_name=self.MODULE_NAME,
                 status=status,
                 findings=findings,
                 duration_s=duration,
+                source_status=source_status,
             )
 
         except Exception as exc:  # noqa: BLE001
             duration = time.perf_counter() - t_start
             error_msg = f"{type(exc).__name__}: {exc}"
             logger.error("[%s] FAILED after %.2fs — %s", self.MODULE_NAME, duration, error_msg)
+            source_status = getattr(self, "source_status", None)
             return ModuleResult(
                 module_name=self.MODULE_NAME,
                 status=ModuleStatus.FAILED,
                 findings=[],
                 error=error_msg,
                 duration_s=duration,
+                source_status=source_status,
             )
 
     @abstractmethod

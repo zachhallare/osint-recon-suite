@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 _UTC = timezone.utc
 
 _SHODAN_INTERNETDB  = "https://internetdb.shodan.io/{ip}"
+_SHODAN_DISCLAIMER  = "Source: Shodan InternetDB — passive historical cache, may be stale or incomplete. Not a live port scan."
 _IPAPI_URL          = "https://ipapi.co/{ip}/json/"
 _HACKERTARGET_RIPLOOKUP = "https://api.hackertarget.com/reverseiplookup/?q={ip}"
 
@@ -169,7 +170,7 @@ class CompanyMapperModule(BaseModule):
                 finding_type="open_port",
                 value=f"{ip}:{port}",
                 risk_level=risk,
-                extra={"ip": ip, "port": port, "source": "shodan_internetdb"},
+                extra={"ip": ip, "port": port, "source": "shodan_internetdb", "disclaimer": _SHODAN_DISCLAIMER},
             ))
 
         # CVEs
@@ -179,7 +180,7 @@ class CompanyMapperModule(BaseModule):
                 finding_type="known_cve",
                 value=f"{cve} on {ip}",
                 risk_level=RiskLevel.HIGH,
-                extra={"ip": ip, "cve_id": cve, "source": "shodan_internetdb"},
+                extra={"ip": ip, "cve_id": cve, "source": "shodan_internetdb", "disclaimer": _SHODAN_DISCLAIMER},
             ))
 
         # Software fingerprints
@@ -190,7 +191,7 @@ class CompanyMapperModule(BaseModule):
                 finding_type="software_cpe",
                 value=", ".join(cpes[:5]),  # Limit to five items
                 risk_level=RiskLevel.INFO,
-                extra={"ip": ip, "cpes": cpes, "source": "shodan_internetdb"},
+                extra={"ip": ip, "cpes": cpes, "source": "shodan_internetdb", "disclaimer": _SHODAN_DISCLAIMER},
             ))
 
         # Hostnames associated with the IP
@@ -200,7 +201,7 @@ class CompanyMapperModule(BaseModule):
                 finding_type="shodan_hostname",
                 value=hostname,
                 risk_level=RiskLevel.INFO,
-                extra={"ip": ip, "source": "shodan_internetdb"},
+                extra={"ip": ip, "source": "shodan_internetdb", "disclaimer": _SHODAN_DISCLAIMER},
             ))
 
         # Shodan tags
@@ -211,7 +212,7 @@ class CompanyMapperModule(BaseModule):
                 finding_type="shodan_tags",
                 value=", ".join(tags),
                 risk_level=RiskLevel.INFO,
-                extra={"ip": ip, "tags": tags, "source": "shodan_internetdb"},
+                extra={"ip": ip, "tags": tags, "source": "shodan_internetdb", "disclaimer": _SHODAN_DISCLAIMER},
             ))
 
         return findings

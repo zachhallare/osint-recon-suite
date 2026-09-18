@@ -107,6 +107,9 @@ def print_findings_summary(scan: ScanResult) -> None:
 
     if not findings:
         console.print(f"  [{_DIM}]No findings returned.[/{_DIM}]")
+        for res in scan.results:
+            if getattr(res, "source_status", None) in ("crtsh_failed_fallback_used", "all_sources_failed"):
+                console.print(f"  [{_ORANGE}]Warning: {res.module_name} source status: {res.source_status}[/{_ORANGE}]")
         console.print()
         return
 
@@ -124,18 +127,29 @@ def print_findings_summary(scan: ScanResult) -> None:
         table.add_column("Value", style="white", min_width=30)
         table.add_column("Risk", justify="center", no_wrap=True, min_width=8)
 
+        disclaimers = set()
+        
         for f in hi_med:
             risk_style = (
                 f"bold {_RED}" if f.risk_level.value == "high" else f"bold {_ORANGE}"
             )
+            val_str = f.value[:80] + ("..." if len(f.value) > 80 else "")
+            if f.extra and f.extra.get("disclaimer"):
+                disclaimers.add(f.extra["disclaimer"])
+
             table.add_row(
                 f.module_name,
                 f.finding_type,
-                f.value[:80] + ("..." if len(f.value) > 80 else ""),
+                val_str,
                 Text(f.risk_level.value.upper(), style=risk_style),
             )
 
         console.print(table)
+        
+        if disclaimers:
+            console.print()
+            for d in disclaimers:
+                console.print(f"  [{_ORANGE}]⚠ {d}[/{_ORANGE}]")
     else:
         console.print(
             f"  [{_GREEN}]No HIGH or MEDIUM findings.[/{_GREEN}]"
@@ -146,6 +160,10 @@ def print_findings_summary(scan: ScanResult) -> None:
         console.print(
             f"\n  [{_DIM}]+{low_info_count} LOW / INFO finding(s) — see HTML report for details[/{_DIM}]"
         )
+        
+    for res in scan.results:
+        if getattr(res, "source_status", None) in ("crtsh_failed_fallback_used", "all_sources_failed"):
+            console.print(f"\n  [{_ORANGE}]⚠ Warning: {res.module_name} source status: {res.source_status}[/{_ORANGE}]")
 
     console.print()
 

@@ -151,6 +151,7 @@
     .stat-card.yellow::before { background: var(--yellow); }
     .stat-card.red::before    { background: var(--red); box-shadow: 0 0 8px rgba(255,62,62,.4); }
     .stat-card.orange::before { background: var(--orange); }
+    .stat-card.purple::before { background: var(--purple); box-shadow: 0 0 8px rgba(167,139,250,.4); }
 
     .stat-label {
       font-size: .72rem;
@@ -173,6 +174,7 @@
     .stat-card.yellow .stat-value { color: var(--yellow); }
     .stat-card.red    .stat-value { color: var(--red); }
     .stat-card.orange .stat-value { color: var(--orange); }
+    .stat-card.purple .stat-value { color: var(--purple); }
 
     .stat-sub {
       font-size: .75rem;
@@ -227,6 +229,11 @@
     .status-badge.failed  { background: rgba(255,62,62,.1); color: var(--red); border: 1px solid rgba(255,62,62,.3); }
     .status-badge.partial { background: rgba(255,140,0,.1); color: var(--orange); border: 1px solid rgba(255,140,0,.3); }
     .status-badge.skipped { background: rgba(74,90,116,.12); color: var(--text-dim); border: 1px solid rgba(74,90,116,.25); }
+    .status-badge.critical { background: rgba(167,139,250,.1); color: var(--purple); border: 1px solid rgba(167,139,250,.3); }
+    .status-badge.high { background: rgba(255,62,62,.1); color: var(--red); border: 1px solid rgba(255,62,62,.3); }
+    .status-badge.medium { background: rgba(255,140,0,.1); color: var(--orange); border: 1px solid rgba(255,140,0,.3); }
+    .status-badge.low { background: rgba(57,255,20,.1); color: var(--green); border: 1px solid rgba(57,255,20,.3); }
+    .status-badge.informational { background: rgba(0,212,255,.1); color: var(--accent-2); border: 1px solid rgba(0,212,255,.3); }
 
     .status-badge::before {
       content: '';
@@ -341,6 +348,7 @@
     .risk.low    { background: rgba(57,255,20,.08); color: var(--green); border: 1px solid rgba(57,255,20,.25); }
     .risk.medium { background: rgba(255,140,0,.1); color: var(--orange); border: 1px solid rgba(255,140,0,.3); }
     .risk.high   { background: rgba(255,62,62,.1); color: var(--red); border: 1px solid rgba(255,62,62,.3); text-shadow: 0 0 6px rgba(255,62,62,.3); }
+    .risk.critical { background: rgba(167,139,250,.1); color: var(--purple); border: 1px solid rgba(167,139,250,.3); text-shadow: 0 0 6px rgba(167,139,250,.3); }
 
     /* ── Extra data toggle ───────────────────────────────────────── */
     details { margin-top: 4px; }
@@ -406,6 +414,11 @@
       background: rgba(0,212,255,.08);
       border: 1px solid rgba(0,212,255,.25);
     }
+    .auth-badge.critical { color: var(--purple); background: rgba(167,139,250,.1); border-color: rgba(167,139,250,.3); }
+    .auth-badge.high { color: var(--red); background: rgba(255,62,62,.1); border-color: rgba(255,62,62,.3); }
+    .auth-badge.medium { color: var(--orange); background: rgba(255,140,0,.1); border-color: rgba(255,140,0,.3); }
+    .auth-badge.low { color: var(--green); background: rgba(57,255,20,.1); border-color: rgba(57,255,20,.3); }
+    .auth-badge.informational { color: var(--accent-2); background: rgba(0,212,255,.1); border-color: rgba(0,212,255,.3); }
 
     .auth-badge::before {
       content: '';
@@ -435,6 +448,12 @@
           {{ scan.confirmation_method.value }}
         </span>
       </div>
+      <div>
+        Overall Risk
+        <span class="auth-badge {{ scan.overall_risk_tier.lower() }}">
+          {{ scan.overall_risk_tier.upper() }} ({{ scan.total_risk_score }})
+        </span>
+      </div>
     </div>
   </header>
 
@@ -444,6 +463,11 @@
       <div class="stat-label">Total Findings</div>
       <div class="stat-value">{{ scan.all_findings | length }}</div>
       <div class="stat-sub">across {{ scan.results | length }} module(s)</div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-label">Critical Risk</div>
+      <div class="stat-value">{{ risk_counts[RiskLevel.CRITICAL] }}</div>
+      <div class="stat-sub">severe vulnerability</div>
     </div>
     <div class="stat-card red">
       <div class="stat-label">High Risk</div>
@@ -493,6 +517,7 @@
           </div>
         </div>
         <div style="display:flex; align-items:center; gap:12px;">
+          <span class="status-badge {{ result.risk_tier.lower() }}">Tier: {{ result.risk_tier }} ({{ result.risk_score }})</span>
           <span class="module-name">{{ result.module_name }}</span>
           {% if result.source_status and result.source_status != 'crtsh_ok' %}
             <span class="status-badge partial">Source: {{ result.source_status }}</span>

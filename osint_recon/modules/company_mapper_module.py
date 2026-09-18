@@ -95,7 +95,6 @@ class CompanyMapperModule(BaseModule):
                 module_name=self.MODULE_NAME,
                 finding_type="resolution_error",
                 value=f"Could not resolve any IP for {target}",
-                risk_level=RiskLevel.INFO,
             ))
             return findings
 
@@ -130,7 +129,6 @@ class CompanyMapperModule(BaseModule):
             module_name=self.MODULE_NAME,
             finding_type="resolved_ip",
             value=ip,
-            risk_level=RiskLevel.INFO,
             extra={"target": target},
         ))
 
@@ -164,12 +162,10 @@ class CompanyMapperModule(BaseModule):
 
         # Open ports
         for port in data.get("ports", []):
-            risk = self._classify_port(port)
             findings.append(Finding(
                 module_name=self.MODULE_NAME,
                 finding_type="open_port",
                 value=f"{ip}:{port}",
-                risk_level=risk,
                 extra={"ip": ip, "port": port, "source": "shodan_internetdb", "disclaimer": _SHODAN_DISCLAIMER},
             ))
 
@@ -179,7 +175,6 @@ class CompanyMapperModule(BaseModule):
                 module_name=self.MODULE_NAME,
                 finding_type="known_cve",
                 value=f"{cve} on {ip}",
-                risk_level=RiskLevel.HIGH,
                 extra={"ip": ip, "cve_id": cve, "source": "shodan_internetdb", "disclaimer": _SHODAN_DISCLAIMER},
             ))
 
@@ -190,7 +185,6 @@ class CompanyMapperModule(BaseModule):
                 module_name=self.MODULE_NAME,
                 finding_type="software_cpe",
                 value=", ".join(cpes[:5]),  # Limit to five items
-                risk_level=RiskLevel.INFO,
                 extra={"ip": ip, "cpes": cpes, "source": "shodan_internetdb", "disclaimer": _SHODAN_DISCLAIMER},
             ))
 
@@ -200,7 +194,6 @@ class CompanyMapperModule(BaseModule):
                 module_name=self.MODULE_NAME,
                 finding_type="shodan_hostname",
                 value=hostname,
-                risk_level=RiskLevel.INFO,
                 extra={"ip": ip, "source": "shodan_internetdb", "disclaimer": _SHODAN_DISCLAIMER},
             ))
 
@@ -211,7 +204,6 @@ class CompanyMapperModule(BaseModule):
                 module_name=self.MODULE_NAME,
                 finding_type="shodan_tags",
                 value=", ".join(tags),
-                risk_level=RiskLevel.INFO,
                 extra={"ip": ip, "tags": tags, "source": "shodan_internetdb", "disclaimer": _SHODAN_DISCLAIMER},
             ))
 
@@ -244,7 +236,6 @@ class CompanyMapperModule(BaseModule):
                 module_name=self.MODULE_NAME,
                 finding_type="ip_geolocation",
                 value=f"{ip} → {location}",
-                risk_level=RiskLevel.INFO,
                 extra={
                     "ip": ip,
                     "city": city,
@@ -263,7 +254,6 @@ class CompanyMapperModule(BaseModule):
                 module_name=self.MODULE_NAME,
                 finding_type="ip_asn",
                 value=f"{ip} → {asn} {org}".strip(),
-                risk_level=RiskLevel.INFO,
                 extra={"ip": ip, "asn": asn, "org": org, "source": "ipapi.co"},
             ))
 
@@ -299,7 +289,6 @@ class CompanyMapperModule(BaseModule):
                 module_name=self.MODULE_NAME,
                 finding_type="shared_hosting",
                 value=f"{ip} hosts {len(co_hosted)} domain(s) including the target",
-                risk_level=RiskLevel.LOW,
                 extra={
                     "ip": ip,
                     "co_hosted_count": len(co_hosted),
@@ -314,7 +303,6 @@ class CompanyMapperModule(BaseModule):
                 module_name=self.MODULE_NAME,
                 finding_type="co_hosted_domain",
                 value=co_hosted[0],
-                risk_level=RiskLevel.INFO,
                 extra={"ip": ip, "source": "hackertarget_reverseip"},
             ))
 
@@ -334,7 +322,6 @@ class CompanyMapperModule(BaseModule):
                             module_name=self.MODULE_NAME,
                             finding_type="email_provider",
                             value=provider,
-                            risk_level=RiskLevel.INFO,
                             extra={"mx_record": mx_host, "source": "dns_mx"},
                         ))
                         break
@@ -356,7 +343,6 @@ class CompanyMapperModule(BaseModule):
                             module_name=self.MODULE_NAME,
                             finding_type="dns_provider",
                             value=provider,
-                            risk_level=RiskLevel.INFO,
                             extra={"ns_record": ns_host, "source": "dns_ns"},
                         ))
         except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):

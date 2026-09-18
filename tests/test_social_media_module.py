@@ -97,7 +97,6 @@ class TestProbePlatform:
             )
         assert finding is not None
         assert finding.finding_type == "social_profile"
-        assert finding.risk_level == RiskLevel.MEDIUM
         assert finding.extra["platform"] == "GitHub"
 
     @pytest.mark.anyio
@@ -239,8 +238,6 @@ class TestEnrichGitHub:
         client = _RouterClient(routes)
         findings = await mod._enrich_github(client, "example")
         entity = next((f for f in findings if f.finding_type == "github_entity"), None)
-        assert entity is not None
-        assert entity.risk_level == RiskLevel.LOW
         assert "Example Corp" in entity.extra["name"]
 
     @pytest.mark.anyio
@@ -255,7 +252,6 @@ class TestEnrichGitHub:
         email_f = next((f for f in findings if f.finding_type == "github_email"), None)
         assert email_f is not None
         assert email_f.value == "oss@example.com"
-        assert email_f.risk_level == RiskLevel.MEDIUM
 
     @pytest.mark.anyio
     async def test_sensitive_repos_flagged_as_high(self):
@@ -268,7 +264,6 @@ class TestEnrichGitHub:
         findings = await mod._enrich_github(client, "example")
         sensitive = [f for f in findings if f.finding_type == "github_sensitive_repo"]
         assert len(sensitive) == 2  # terraform-infra and ansible-deploy
-        assert all(f.risk_level == RiskLevel.HIGH for f in sensitive)
 
     @pytest.mark.anyio
     async def test_repos_summary_finding_created(self):

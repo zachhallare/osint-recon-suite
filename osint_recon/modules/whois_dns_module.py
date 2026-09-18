@@ -22,15 +22,15 @@ _DNS_RECORD_TYPES = ["A", "AAAA", "MX", "NS", "TXT", "CNAME", "SOA"]
 
 # Common service verification markers in TXT records
 _INTERESTING_TXT = {
-    "v=spf1": ("spf_record", RiskLevel.INFO),
-    "v=dmarc1": ("dmarc_record", RiskLevel.INFO),
-    "v=dkim1": ("dkim_record", RiskLevel.INFO),
-    "google-site-verification": ("google_verification", RiskLevel.LOW),
-    "ms=ms": ("microsoft_verification", RiskLevel.LOW),
-    "atlassian-domain-verification": ("atlassian_verification", RiskLevel.LOW),
-    "docusign=": ("docusign_verification", RiskLevel.LOW),
-    "stripe-verification=": ("stripe_verification", RiskLevel.LOW),
-    "have-i-been-pwned-verification=": ("hibp_verification", RiskLevel.LOW),
+    "v=spf1": "spf_record",
+    "v=dmarc1": "dmarc_record",
+    "v=dkim1": "dkim_record",
+    "google-site-verification": "google_verification",
+    "ms=ms": "microsoft_verification",
+    "atlassian-domain-verification": "atlassian_verification",
+    "docusign=": "docusign_verification",
+    "stripe-verification=": "stripe_verification",
+    "have-i-been-pwned-verification=": "hibp_verification",
 }
 
 
@@ -63,7 +63,6 @@ class WhoisDnsModule(BaseModule):
                     module_name=self.MODULE_NAME,
                     finding_type="whois_registrar",
                     value=str(w.registrar),
-                    risk_level=RiskLevel.INFO,
                     extra={"source": "whois"},
                 ))
 
@@ -73,7 +72,6 @@ class WhoisDnsModule(BaseModule):
                     module_name=self.MODULE_NAME,
                     finding_type="whois_org",
                     value=str(w.org),
-                    risk_level=RiskLevel.INFO,
                     extra={"source": "whois"},
                 ))
 
@@ -84,7 +82,6 @@ class WhoisDnsModule(BaseModule):
                     module_name=self.MODULE_NAME,
                     finding_type="whois_creation_date",
                     value=created,
-                    risk_level=RiskLevel.INFO,
                     extra={"source": "whois"},
                 ))
 
@@ -96,7 +93,6 @@ class WhoisDnsModule(BaseModule):
                     module_name=self.MODULE_NAME,
                     finding_type="whois_expiry_date",
                     value=expiry,
-                    risk_level=risk,
                     extra={
                         "source": "whois",
                         "note": "Domain expiring soon" if risk == RiskLevel.HIGH else "",
@@ -110,7 +106,6 @@ class WhoisDnsModule(BaseModule):
                     module_name=self.MODULE_NAME,
                     finding_type="whois_name_servers",
                     value=", ".join(ns_list),
-                    risk_level=RiskLevel.INFO,
                     extra={"source": "whois", "count": len(ns_list)},
                 ))
 
@@ -120,7 +115,6 @@ class WhoisDnsModule(BaseModule):
                     module_name=self.MODULE_NAME,
                     finding_type="whois_dnssec",
                     value=str(w.dnssec),
-                    risk_level=RiskLevel.INFO,
                     extra={"source": "whois"},
                 ))
 
@@ -133,7 +127,6 @@ class WhoisDnsModule(BaseModule):
                             module_name=self.MODULE_NAME,
                             finding_type="whois_email_exposed",
                             value=str(email),
-                            risk_level=RiskLevel.MEDIUM,
                             extra={"source": "whois", "note": "Email exposed in public WHOIS record"},
                         ))
 
@@ -143,7 +136,6 @@ class WhoisDnsModule(BaseModule):
                 module_name=self.MODULE_NAME,
                 finding_type="whois_error",
                 value=f"WHOIS lookup failed: {type(exc).__name__}: {exc}",
-                risk_level=RiskLevel.INFO,
                 extra={"source": "whois"},
             ))
 
@@ -157,13 +149,12 @@ class WhoisDnsModule(BaseModule):
                 answers = self._resolver.resolve(target, rtype)
                 for rdata in answers:
                     value = rdata.to_text()
-                    risk = RiskLevel.INFO
                     extra: dict = {"record_type": rtype, "source": "dns"}
 
                     # Flag interesting TXT records
                     if rtype == "TXT":
                         value_lower = value.lower().replace('"', "")
-                        for keyword, (ftype_override, risk_override) in _INTERESTING_TXT.items():
+                        for keyword, ftype_override in _INTERESTING_TXT.items():
                             if keyword in value_lower:
                                 extra["category"] = ftype_override
                                 break
@@ -172,7 +163,6 @@ class WhoisDnsModule(BaseModule):
                         module_name=self.MODULE_NAME,
                         finding_type=f"dns_{rtype.lower()}",
                         value=value,
-                        risk_level=risk,
                         extra=extra,
                     ))
 
@@ -184,7 +174,6 @@ class WhoisDnsModule(BaseModule):
                     module_name=self.MODULE_NAME,
                     finding_type="dns_nxdomain",
                     value=f"{target} - domain does not exist (NXDOMAIN)",
-                    risk_level=RiskLevel.INFO,
                     extra={"record_type": rtype, "source": "dns"},
                 ))
                 break  # Stop querying if domain does not exist

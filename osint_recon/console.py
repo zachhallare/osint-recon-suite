@@ -99,7 +99,7 @@ def make_progress() -> Progress:
 def print_findings_summary(scan: ScanResult) -> None:
     """Print a table of HIGH/MEDIUM findings plus a count of lower-severity ones."""
     findings = scan.all_findings
-    hi_med = [f for f in findings if f.risk_level.value in ("high", "medium")]
+    hi_med = [f for f in findings if f.risk_level.value in ("critical", "high", "medium")]
     low_info_count = len(findings) - len(hi_med)
 
     console.print(Rule(f"[bold {_CYAN}]Findings Summary[/]", style=_DIM))
@@ -130,9 +130,12 @@ def print_findings_summary(scan: ScanResult) -> None:
         disclaimers = set()
         
         for f in hi_med:
-            risk_style = (
-                f"bold {_RED}" if f.risk_level.value == "high" else f"bold {_ORANGE}"
-            )
+            if f.risk_level.value == "critical":
+                risk_style = f"bold {_RED} reverse"
+            elif f.risk_level.value == "high":
+                risk_style = f"bold {_RED}"
+            else:
+                risk_style = f"bold {_ORANGE}"
             val_str = f.value[:80] + ("..." if len(f.value) > 80 else "")
             if f.extra and f.extra.get("disclaimer"):
                 disclaimers.add(f.extra["disclaimer"])
@@ -152,7 +155,7 @@ def print_findings_summary(scan: ScanResult) -> None:
                 console.print(f"  [{_ORANGE}]⚠ {d}[/{_ORANGE}]")
     else:
         console.print(
-            f"  [{_GREEN}]No HIGH or MEDIUM findings.[/{_GREEN}]"
+            f"  [{_GREEN}]No CRITICAL, HIGH or MEDIUM findings.[/{_GREEN}]"
             f"  [{_DIM}](All findings are LOW / INFO)[/{_DIM}]"
         )
 
@@ -173,10 +176,19 @@ def print_scan_footer(
     report_path: Path | None = None,
 ) -> None:
     """Print the final stat block after scanning is done."""
+    tier_color = {
+        "Critical": _RED,
+        "High": _ORANGE,
+        "Medium": _YELLOW,
+        "Low": _GREEN,
+        "Informational": _CYAN,
+    }.get(scan.overall_risk_tier, _DIM)
+
     stats = [
         _stat_cell("Findings", str(len(scan.all_findings)), _GREEN),
         _stat_cell("Modules", str(len(scan.results)), _CYAN),
         _stat_cell("Duration", f"{scan.total_duration_s:.1f}s", _YELLOW),
+        _stat_cell("Risk Tier", f"{scan.overall_risk_tier.upper()} ({scan.total_risk_score})", tier_color),
     ]
 
     console.print(Columns(stats, equal=False, expand=False))

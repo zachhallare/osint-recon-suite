@@ -16,6 +16,31 @@ class RiskLevel(str, Enum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
+    CRITICAL = "critical"
+
+    @property
+    def score(self) -> int:
+        """Numerical score mapping for this risk level."""
+        mapping = {
+            RiskLevel.INFO: 0,
+            RiskLevel.LOW: 1,
+            RiskLevel.MEDIUM: 5,
+            RiskLevel.HIGH: 10,
+            RiskLevel.CRITICAL: 25,
+        }
+        return mapping[self]
+
+def score_to_tier(score: int) -> str:
+    """Map a numerical risk score to an overall tier."""
+    if score >= 50:
+        return "Critical"
+    if score >= 25:
+        return "High"
+    if score >= 10:
+        return "Medium"
+    if score >= 1:
+        return "Low"
+    return "Informational"
 
 
 class ModuleStatus(str, Enum):
@@ -64,6 +89,16 @@ class ModuleResult:
     duration_s: float = 0.0
     source_status: str | None = None
 
+    @property
+    def risk_score(self) -> int:
+        """Total risk score for all findings in this module."""
+        return sum(f.risk_level.score for f in self.findings)
+
+    @property
+    def risk_tier(self) -> str:
+        """Overall risk tier for this module."""
+        return score_to_tier(self.risk_score)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "module_name": self.module_name,
@@ -72,6 +107,8 @@ class ModuleResult:
             "error": self.error,
             "duration_s": round(self.duration_s, 3),
             "source_status": self.source_status,
+            "risk_score": self.risk_score,
+            "risk_tier": self.risk_tier,
         }
 
 
@@ -96,6 +133,16 @@ class ScanResult:
             return 0.0
         return (self.completed_at - self.started_at).total_seconds()
 
+    @property
+    def total_risk_score(self) -> int:
+        """Total risk score aggregated across all modules."""
+        return sum(r.risk_score for r in self.results)
+
+    @property
+    def overall_risk_tier(self) -> str:
+        """Overall risk tier for the entire scan."""
+        return score_to_tier(self.total_risk_score)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "target": self.target,
@@ -104,4 +151,6 @@ class ScanResult:
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
             "total_duration_s": round(self.total_duration_s, 3),
             "results": [r.to_dict() for r in self.results],
+            "total_risk_score": self.total_risk_score,
+            "overall_risk_tier": self.overall_risk_tier,
         }

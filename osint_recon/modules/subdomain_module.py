@@ -80,14 +80,12 @@ class SubdomainModule(BaseModule):
                     module_name=self.MODULE_NAME,
                     finding_type="crtsh_error",
                     value=fetch_error,
-                    risk_level=RiskLevel.INFO,
                     extra={"source": "crt.sh"},
                 ))
                 findings.append(Finding(
                     module_name=self.MODULE_NAME,
                     finding_type="certspotter_error",
                     value=fallback_error,
-                    risk_level=RiskLevel.INFO,
                     extra={"source": "certspotter"},
                 ))
                 return findings
@@ -213,7 +211,6 @@ class SubdomainModule(BaseModule):
             module_name=self.MODULE_NAME,
             finding_type="subdomain",
             value=subdomain,
-            risk_level=risk,
             extra=extra,
         )
 

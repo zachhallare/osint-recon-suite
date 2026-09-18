@@ -78,7 +78,6 @@ class TestExtractPdf:
         author_f = next((f for f in findings if f.finding_type == "pdf_author"), None)
         assert author_f is not None
         assert author_f.value == "Jane Smith"
-        assert author_f.risk_level == RiskLevel.MEDIUM
 
     def test_creator_extracted(self):
         try:
@@ -135,7 +134,6 @@ class TestExtractOffice:
         author_f = next((f for f in findings if f.finding_type == "office_author"), None)
         assert author_f is not None
         assert author_f.value == "Test Author"
-        assert author_f.risk_level == RiskLevel.MEDIUM
 
     def test_company_extracted(self):
         content = self._make_docx_bytes()
@@ -157,7 +155,6 @@ class TestExtractOffice:
         lmb = next((f for f in findings if f.finding_type == "office_last_modified_by"), None)
         assert lmb is not None
         assert lmb.value == "jdoe"
-        assert lmb.risk_level == RiskLevel.MEDIUM
 
     def test_corrupt_bytes_returns_empty(self):
         mod = MetadataExtractorModule()

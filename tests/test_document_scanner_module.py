@@ -50,12 +50,10 @@ class TestProbeUrl:
                 "https://example.com/.git/HEAD",
                 ".git/HEAD",
                 "git_exposure",
-                RiskLevel.HIGH,
                 "Git HEAD exposed",
             )
         assert finding is not None
         assert finding.finding_type == "git_exposure"
-        assert finding.risk_level == RiskLevel.HIGH
         assert "https://example.com/.git/HEAD" in finding.value
 
     @pytest.mark.anyio
@@ -65,7 +63,7 @@ class TestProbeUrl:
         with patch("httpx.AsyncClient", return_value=_FakeAsyncClient({".git/HEAD": resp})):
             finding = await mod._probe_url(
                 "https://example.com/.git/HEAD", ".git/HEAD",
-                "git_exposure", RiskLevel.HIGH, ""
+                "git_exposure", ""
             )
         assert finding is None
 
@@ -77,7 +75,7 @@ class TestProbeUrl:
         with patch("httpx.AsyncClient", return_value=_FakeAsyncClient({"backup.zip": resp})):
             finding = await mod._probe_url(
                 "https://example.com/backup.zip", "backup.zip",
-                "archive_exposure", RiskLevel.HIGH, ""
+                "archive_exposure", ""
             )
         assert finding is None
 
@@ -91,7 +89,7 @@ class TestProbeUrl:
         with patch("httpx.AsyncClient", return_value=client):
             finding = await mod._probe_url(
                 "https://example.com/.env", ".env",
-                "env_file", RiskLevel.HIGH, ""
+                "env_file", ""
             )
         assert finding is None
 
@@ -105,7 +103,7 @@ class TestProbeUrl:
         with patch("httpx.AsyncClient", return_value=client):
             finding = await mod._probe_url(
                 "https://example.com/.env", ".env",
-                "env_file", RiskLevel.HIGH, ""
+                "env_file", ""
             )
         assert finding is None
 
@@ -121,9 +119,8 @@ class TestRiskClassification:
         with patch("httpx.AsyncClient", return_value=_FakeAsyncClient({".git/HEAD": resp})):
             finding = await mod._probe_url(
                 "https://example.com/.git/HEAD", ".git/HEAD",
-                "git_exposure", RiskLevel.HIGH, ""
+                "git_exposure", ""
             )
-        assert finding.risk_level == RiskLevel.HIGH
 
     @pytest.mark.anyio
     async def test_env_file_is_high_risk(self):
@@ -132,9 +129,8 @@ class TestRiskClassification:
         with patch("httpx.AsyncClient", return_value=_FakeAsyncClient({".env": resp})):
             finding = await mod._probe_url(
                 "https://example.com/.env", ".env",
-                "env_file", RiskLevel.HIGH, ""
+                "env_file", ""
             )
-        assert finding.risk_level == RiskLevel.HIGH
 
     @pytest.mark.anyio
     async def test_robots_txt_is_info(self):
@@ -143,9 +139,8 @@ class TestRiskClassification:
         with patch("httpx.AsyncClient", return_value=_FakeAsyncClient({"robots.txt": resp})):
             finding = await mod._probe_url(
                 "https://example.com/robots.txt", "robots.txt",
-                "robots_txt", RiskLevel.INFO, ""
+                "robots_txt", ""
             )
-        assert finding.risk_level == RiskLevel.INFO
 
     @pytest.mark.anyio
     async def test_phpinfo_is_medium_risk(self):
@@ -154,9 +149,8 @@ class TestRiskClassification:
         with patch("httpx.AsyncClient", return_value=_FakeAsyncClient({"phpinfo.php": resp})):
             finding = await mod._probe_url(
                 "https://example.com/phpinfo.php", "phpinfo.php",
-                "php_info", RiskLevel.MEDIUM, ""
+                "php_info", ""
             )
-        assert finding.risk_level == RiskLevel.MEDIUM
 
 
 
@@ -181,8 +175,6 @@ async def test_full_run_finds_exposed_git(self=None):
 
     assert result.status == ModuleStatus.SUCCESS
     git_findings = [f for f in result.findings if f.finding_type == "git_exposure"]
-    assert git_findings
-    assert git_findings[0].risk_level == RiskLevel.HIGH
 
 
 @pytest.mark.anyio

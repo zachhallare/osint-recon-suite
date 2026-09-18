@@ -163,7 +163,6 @@ class SocialMediaModule(BaseModule):
                     module_name=self.MODULE_NAME,
                     finding_type="social_profile",
                     value=url,
-                    risk_level=RiskLevel.MEDIUM,
                     extra={
                         "platform": platform,
                         "slug": slug,
@@ -201,7 +200,6 @@ class SocialMediaModule(BaseModule):
             module_name=self.MODULE_NAME,
             finding_type="github_entity",
             value=entity_data.get("html_url", f"https://github.com/{slug}"),
-            risk_level=RiskLevel.LOW,
             extra={
                 "slug": slug,
                 "type": entity_type,
@@ -224,7 +222,6 @@ class SocialMediaModule(BaseModule):
                 module_name=self.MODULE_NAME,
                 finding_type="github_email",
                 value=profile_email,
-                risk_level=RiskLevel.MEDIUM,
                 extra={
                     "slug": slug,
                     "source": "github_api",
@@ -247,7 +244,6 @@ class SocialMediaModule(BaseModule):
                 module_name=self.MODULE_NAME,
                 finding_type="github_repos_summary",
                 value=f"{len(repos)} public repo(s), {total_stars} total stars",
-                risk_level=RiskLevel.INFO,
                 extra={
                     "slug": slug,
                     "repo_count": len(repos),
@@ -270,7 +266,6 @@ class SocialMediaModule(BaseModule):
                     module_name=self.MODULE_NAME,
                     finding_type="github_sensitive_repo",
                     value=repo.get("html_url", ""),
-                    risk_level=RiskLevel.HIGH,
                     extra={
                         "slug": slug,
                         "repo_name": repo.get("name"),

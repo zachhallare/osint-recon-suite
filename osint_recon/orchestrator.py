@@ -17,6 +17,7 @@ from urllib.parse import urlparse
 from osint_recon.base_module import BaseModule
 from osint_recon.database import Database
 from osint_recon.models import ConfirmationMethod, ScanResult, ModuleStatus
+from osint_recon.scoring import post_process_findings
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +93,8 @@ class Orchestrator:
                 mod_task_id = progress.add_task(f"[cyan]Running {module.MODULE_NAME}...", total=None)
 
             result = await module.run(target)
+            if result.findings:
+                result.findings = post_process_findings(result.findings)
             
             async with db_lock:
                 try:

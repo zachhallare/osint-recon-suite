@@ -43,6 +43,10 @@ async def test_orchestrator_concurrency(tmp_path):
     # Verify all findings were generated
     assert len(scan.all_findings) == 20
     
+    # All mock findings are RiskLevel.INFO, so score should be 0
+    assert scan.total_risk_score == 0
+    assert scan.overall_risk_tier == "Informational"
+    
     # Verify all findings were persisted into the DB correctly without corruption
     saved_findings = orch.db.get_findings_for_run(scan.scan_run_id)
     assert len(saved_findings) == 20
@@ -77,7 +81,7 @@ async def test_orchestrator_persistence_error_isolation(tmp_path):
     
     # Check results statuses
     results_by_mod = {r.module_name: r for r in scan.results}
-    from osint_recon.models import ModuleStatus
+    from osint_recon.models import ModuleStatus, RiskLevel
     assert results_by_mod["mod_ok1"].status == ModuleStatus.SUCCESS
     assert results_by_mod["mod_ok2"].status == ModuleStatus.SUCCESS
     assert results_by_mod["mod_fail"].status == ModuleStatus.FAILED

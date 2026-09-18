@@ -173,7 +173,6 @@ class MetadataExtractorModule(BaseModule):
                         module_name=self.MODULE_NAME,
                         finding_type=ftype,
                         value=str(value).strip(),
-                        risk_level=risk,
                         extra={"url": url, "field": key, "source": "pdf_metadata", "note": desc},
                     ))
 
@@ -217,7 +216,6 @@ class MetadataExtractorModule(BaseModule):
                             module_name=self.MODULE_NAME,
                             finding_type=ftype,
                             value=str(value).strip(),
-                            risk_level=risk,
                             extra={"url": url, "field": attr, "source": "office_metadata", "note": desc},
                         ))
                 except Exception:
@@ -237,7 +235,6 @@ class MetadataExtractorModule(BaseModule):
                         module_name=self.MODULE_NAME,
                         finding_type="office_company",
                         value=company_elem.text.strip(),
-                        risk_level=RiskLevel.LOW,
                         extra={"url": url, "field": "company", "source": "office_metadata",
                                "note": "Company name in document properties"},
                     ))
@@ -284,7 +281,6 @@ class MetadataExtractorModule(BaseModule):
                         module_name=self.MODULE_NAME,
                         finding_type="image_gps_coordinates",
                         value=f"{lat:.6f}, {lon:.6f}",
-                        risk_level=RiskLevel.HIGH,
                         extra={
                             "url": url,
                             "latitude": lat,
@@ -313,7 +309,6 @@ class MetadataExtractorModule(BaseModule):
                         module_name=self.MODULE_NAME,
                         finding_type=ftype,
                         value=str(value).strip(),
-                        risk_level=risk,
                         extra={"url": url, "exif_tag": tag, "source": "image_exif", "note": desc},
                     ))
 

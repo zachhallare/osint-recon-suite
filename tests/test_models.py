@@ -10,6 +10,7 @@ from osint_recon.models import (
     ModuleStatus,
     RiskLevel,
     ScanResult,
+    score_to_tier,
 )
 
 
@@ -31,6 +32,26 @@ class TestFinding:
     def test_risk_level_serialised(self):
         f = Finding(module_name="x", finding_type="y", value="z", risk_level=RiskLevel.HIGH)
         assert f.to_dict()["risk_level"] == "high"
+
+    def test_risk_level_score(self):
+        assert RiskLevel.INFO.score == 0
+        assert RiskLevel.LOW.score == 1
+        assert RiskLevel.MEDIUM.score == 5
+        assert RiskLevel.HIGH.score == 10
+        assert RiskLevel.CRITICAL.score == 25
+
+def test_score_to_tier():
+    assert score_to_tier(0) == "Informational"
+    assert score_to_tier(1) == "Low"
+    assert score_to_tier(4) == "Low"
+    assert score_to_tier(5) == "Low"
+    assert score_to_tier(9) == "Low"
+    assert score_to_tier(10) == "Medium"
+    assert score_to_tier(24) == "Medium"
+    assert score_to_tier(25) == "High"
+    assert score_to_tier(49) == "High"
+    assert score_to_tier(50) == "Critical"
+    assert score_to_tier(100) == "Critical"
 
 
 class TestModuleResult:
@@ -93,3 +114,41 @@ class TestScanResult:
         assert d["target"] == "example.com"
         assert d["scan_run_id"] == 1
         assert isinstance(d["results"], list)
+
+    def test_scan_risk_scores(self):
+        scan = self._make_scan()
+        
+        # Test zero findings
+        assert scan.total_risk_score == 0
+        assert scan.overall_risk_tier == "Informational"
+        
+        # Test findings across all severity tiers
+        scan.results = [
+            ModuleResult(
+                module_name="dns",
+                status=ModuleStatus.SUCCESS,
+                findings=[
+                    Finding(module_name="dns", finding_type="x", value="1", risk_level=RiskLevel.INFO),
+                    Finding(module_name="dns", finding_type="x", value="2", risk_level=RiskLevel.LOW),
+                ],
+            ),
+            ModuleResult(
+                module_name="whois",
+                status=ModuleStatus.SUCCESS,
+                findings=[
+                    Finding(module_name="whois", finding_type="y", value="3", risk_level=RiskLevel.MEDIUM),
+                    Finding(module_name="whois", finding_type="y", value="4", risk_level=RiskLevel.HIGH),
+                    Finding(module_name="whois", finding_type="y", value="5", risk_level=RiskLevel.CRITICAL),
+                ],
+            ),
+        ]
+        
+        # INFO(0) + LOW(1) + MEDIUM(5) + HIGH(10) + CRITICAL(25) = 41
+        assert scan.results[0].risk_score == 1
+        assert scan.results[0].risk_tier == "Low"
+        
+        assert scan.results[1].risk_score == 40
+        assert scan.results[1].risk_tier == "High"
+        
+        assert scan.total_risk_score == 41
+        assert scan.overall_risk_tier == "High"

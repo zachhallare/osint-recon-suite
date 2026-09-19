@@ -114,6 +114,7 @@ async def main() -> None:
     from osint_recon.modules.social_media_module import SocialMediaModule
     from osint_recon.modules.subdomain_module import SubdomainModule
     from osint_recon.modules.whois_dns_module import WhoisDnsModule
+    from osint_recon.modules.breach_module import BreachModule
 
     if args.mock:
         modules = [MockModule()]
@@ -126,6 +127,7 @@ async def main() -> None:
             DocumentScannerModule(),
             MetadataExtractorModule(),
             SocialMediaModule(),
+            BreachModule(),
         ]
         
         available_modules = {m.MODULE_NAME: m for m in modules}

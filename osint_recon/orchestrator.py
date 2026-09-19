@@ -97,7 +97,7 @@ class Orchestrator:
                 # total=None makes it pulse/indeterminate until complete
                 mod_task_id = progress.add_task(f"[cyan]Running {module.MODULE_NAME}...", total=None)
 
-            result = await module.run(target)
+            result = await module.run(target, previous_findings=scan.all_findings)
             if result.findings:
                 result.findings = post_process_findings(result.findings)
             
@@ -117,7 +117,12 @@ class Orchestrator:
                 else:
                     progress.update(mod_task_id, description=f"[bold cyan]Done: {module.MODULE_NAME}[/bold cyan]", total=1, completed=1)
 
-        await asyncio.gather(*[_execute_module(m) for m in self.modules])
+        phase1_modules = [m for m in self.modules if not getattr(m, "RUN_AFTER_OTHERS", False)]
+        phase2_modules = [m for m in self.modules if getattr(m, "RUN_AFTER_OTHERS", False)]
+
+        await asyncio.gather(*[_execute_module(m) for m in phase1_modules])
+        if phase2_modules:
+            await asyncio.gather(*[_execute_module(m) for m in phase2_modules])
 
         # Diffing logic
         prev_run = self.db.get_previous_scan_run(target_id, run_id)

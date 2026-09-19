@@ -15,9 +15,11 @@ class BaseModule(ABC):
     """Base recon module. Subclasses implement _run."""
 
     MODULE_NAME: str = "base"
+    RUN_AFTER_OTHERS: bool = False
 
-    async def run(self, target: str) -> ModuleResult:
+    async def run(self, target: str, previous_findings: list[Finding] | None = None) -> ModuleResult:
         """Run the module against the target and catch any errors."""
+        self.previous_findings = previous_findings or []
         logger.info("[%s] Starting module for target=%r", self.MODULE_NAME, target)
         t_start = time.perf_counter()
 

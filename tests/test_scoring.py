@@ -15,6 +15,26 @@ def test_open_port_base_risk():
     assert get_base_risk(Finding("m", "open_port", "", extra={"port": 3306})) == RiskLevel.HIGH
     assert get_base_risk(Finding("m", "open_port", "", extra={"port": 22})) == RiskLevel.HIGH
 
+def test_email_breach_base_risk():
+    # Sensitive breach is HIGH
+    f1 = Finding("m", "email_breach", "", extra={"is_sensitive": True, "breach_date": "2010-01-01"})
+    assert get_base_risk(f1) == RiskLevel.HIGH
+    
+    # Recent breach (< 3 years) is MEDIUM
+    from datetime import datetime, timedelta
+    recent_date = (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%d")
+    f2 = Finding("m", "email_breach", "", extra={"is_sensitive": False, "breach_date": recent_date})
+    assert get_base_risk(f2) == RiskLevel.MEDIUM
+    
+    # Old breach (> 3 years) is LOW
+    old_date = (datetime.now() - timedelta(days=2000)).strftime("%Y-%m-%d")
+    f3 = Finding("m", "email_breach", "", extra={"is_sensitive": False, "breach_date": old_date})
+    assert get_base_risk(f3) == RiskLevel.LOW
+    
+    # Missing date/sensitivity is LOW
+    f4 = Finding("m", "email_breach", "", extra={})
+    assert get_base_risk(f4) == RiskLevel.LOW
+
 def test_escalation_path():
     # 1. No CVE -> no escalation
     findings = [

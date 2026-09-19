@@ -144,6 +144,24 @@ def get_base_risk(finding: Finding) -> RiskLevel:
             return RiskLevel.LOW
         return RiskLevel.INFO
 
+    if finding.finding_type == "email_breach":
+        is_sensitive = finding.extra.get("is_sensitive", False)
+        breach_date_str = finding.extra.get("breach_date", "")
+        if is_sensitive:
+            return RiskLevel.HIGH
+        elif breach_date_str:
+            try:
+                from datetime import datetime
+                breach_date = datetime.strptime(breach_date_str, "%Y-%m-%d")
+                if (datetime.now() - breach_date).days < (3 * 365):
+                    return RiskLevel.MEDIUM
+            except ValueError:
+                pass
+        return RiskLevel.LOW
+
+    if finding.finding_type == "breach_error":
+        return RiskLevel.INFO
+
     return _BASE_RISK_MAP.get(finding.finding_type, RiskLevel.INFO)
 
 def post_process_findings(findings: Iterable[Finding]) -> list[Finding]:

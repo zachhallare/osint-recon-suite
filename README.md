@@ -18,6 +18,9 @@
 
 **OSINT Recon Suite** is a modular, passive open-source intelligence tool. Give it a domain name and it automatically runs WHOIS lookups, DNS recon, subdomain discovery, attack surface mapping, exposed document scanning, file metadata extraction, and social media footprint analysis. Everything is packaged into a single, self-contained HTML risk report you can open in any browser.
 
+> [!NOTE]
+> **Stretch Goal Addition:** The suite now includes an 8th **Breach Check Module**! This module passively collects emails discovered during the scan (by the original 7 modules) and checks them against the Have I Been Pwned (HIBP) API. Note: This requires a paid HIBP API key set in the `HIBP_API_KEY` environment variable.
+
 **No paid API keys. No server. No GUI needed.**
 
 ### Built With

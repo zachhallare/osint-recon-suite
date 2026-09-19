@@ -121,6 +121,12 @@ class ScanResult:
     completed_at: datetime | None = None
     results: list[ModuleResult] = field(default_factory=list)
     confirmation_method: ConfirmationMethod = ConfirmationMethod.INTERACTIVE
+    previous_scan_run_id: int | None = None
+    previous_scan_was_partial: bool = False
+    new_findings: list[Finding] = field(default_factory=list)
+    resolved_findings: list[Finding] = field(default_factory=list)
+    modules_run: list[str] = field(default_factory=list)
+    previous_scan_modules: list[str] = field(default_factory=list)
 
     @property
     def all_findings(self) -> list[Finding]:
@@ -153,4 +159,10 @@ class ScanResult:
             "results": [r.to_dict() for r in self.results],
             "total_risk_score": self.total_risk_score,
             "overall_risk_tier": self.overall_risk_tier,
+            "previous_scan_run_id": self.previous_scan_run_id,
+            "previous_scan_was_partial": self.previous_scan_was_partial,
+            "new_findings": [f.to_dict() for f in self.new_findings],
+            "resolved_findings": [f.to_dict() for f in self.resolved_findings],
+            "modules_run": self.modules_run,
+            "previous_scan_modules": self.previous_scan_modules,
         }

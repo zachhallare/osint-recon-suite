@@ -442,6 +442,7 @@
       <div>Duration <strong>{{ "%.1f"|format(scan.total_duration_s) }}s</strong></div>
       {% endif %}
       <div>Generated <strong>{{ generated_at.strftime('%Y-%m-%d %H:%M UTC') }}</strong></div>
+      <div>Modules Run <strong style="font-family: monospace;">{{ scan.modules_run | join(', ') }}</strong></div>
       <div>
         Authorization
         <span class="auth-badge {{ scan.confirmation_method.value }}">
@@ -489,6 +490,65 @@
       <div class="stat-value">{{ risk_counts[RiskLevel.INFO] }}</div>
       <div class="stat-sub">no immediate concern</div>
     </div>
+  </section>
+
+  <!-- ── Diff Summary ────────────────────────────────────────── -->
+  <section class="section" aria-label="What Changed">
+    <div class="section-header">
+      <h2>What Changed Since Last Scan</h2>
+    </div>
+    {% if scan.previous_scan_was_partial %}
+      <div style="margin-bottom: 16px; padding: 12px 16px; background: rgba(255, 140, 0, 0.1); border-left: 3px solid var(--orange); color: var(--orange); font-size: 0.85rem;">
+        <strong>Warning</strong>: The previous scan (Run #{{ scan.previous_scan_run_id }}) encountered partial failures. Some "new" or "resolved" findings may be due to improved data completeness rather than actual environmental changes.
+      </div>
+    {% endif %}
+    {% if scan.previous_scan_run_id is none %}
+      <div style="padding: 16px; background: rgba(0, 212, 255, 0.08); border: 1px solid rgba(0, 212, 255, 0.3); border-radius: var(--radius-sm); color: var(--accent-2); font-size: 0.9rem;">
+        <strong>Baseline Scan</strong>: No previous scan data available for comparison.
+      </div>
+    {% elif not scan.new_findings and not scan.resolved_findings %}
+      <div style="padding: 16px; background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-dim); font-size: 0.9rem;">
+        No new or resolved findings discovered since run #{{ scan.previous_scan_run_id }}.
+      </div>
+    {% else %}
+      <table class="findings-table" aria-label="Changed Findings">
+        <thead>
+          <tr>
+            <th>Module</th>
+            <th>Type</th>
+            <th>Value</th>
+            <th>Risk</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for finding in scan.new_findings %}
+          <tr>
+            <td>{{ finding.module_name }}</td>
+            <td style="color: var(--green); font-weight: 600;">+ {{ finding.finding_type }}</td>
+            <td class="value">
+              {{ finding.value }}
+              {% if finding.extra and finding.extra.disclaimer %}
+                <div style="margin-top: 6px; padding: 6px 10px; background: rgba(255, 140, 0, 0.1); border-left: 2px solid var(--orange); color: var(--orange); font-size: 0.72rem; font-family: 'Inter', sans-serif; white-space: normal;">
+                  ⚠ {{ finding.extra.disclaimer }}
+                </div>
+              {% endif %}
+            </td>
+            <td><span class="risk {{ finding.risk_level.value }}">{{ finding.risk_level.value }}</span></td>
+          </tr>
+          {% endfor %}
+          {% for finding in scan.resolved_findings %}
+          <tr>
+            <td>{{ finding.module_name }}</td>
+            <td style="color: var(--red); font-weight: 600; opacity: 0.7;">- {{ finding.finding_type }}</td>
+            <td class="value" style="opacity: 0.6; text-decoration: line-through;">
+              {{ finding.value }}
+            </td>
+            <td><span class="risk {{ finding.risk_level.value }}" style="opacity: 0.5;">{{ finding.risk_level.value }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
   </section>
 
   <!-- ── Module results ────────────────────────────────────────── -->

@@ -77,3 +77,55 @@ class TestFindings:
         run_id = db.create_scan_run(tid)
         db.save_findings(run_id, [])  # should not raise
         assert db.get_findings_for_run(run_id) == []
+
+    def test_legacy_migration(self, tmp_path):
+        import sqlite3
+        db_path = tmp_path / "legacy.db"
+        
+        # Create a database using the legacy schema manually
+        conn = sqlite3.connect(str(db_path))
+        conn.executescript("""
+            CREATE TABLE targets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                domain TEXT NOT NULL UNIQUE,
+                created_at TEXT NOT NULL DEFAULT '2023-01-01T00:00:00Z'
+            );
+            CREATE TABLE scan_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                target_id INTEGER NOT NULL REFERENCES targets(id),
+                started_at TEXT NOT NULL,
+                completed_at TEXT,
+                status TEXT NOT NULL DEFAULT 'running'
+                /* missing confirmation_method and modules_run */
+            );
+        """)
+        conn.execute("INSERT INTO targets (name, domain) VALUES ('legacy.com', 'legacy.com')")
+        conn.execute("INSERT INTO scan_runs (target_id, started_at) VALUES (1, '2023-01-01T00:00:00Z')")
+        conn.commit()
+        conn.close()
+        
+        # Now instantiate Database, which should trigger the _init_schema migration
+        from osint_recon.database import Database
+        migrated_db = Database(db_path=db_path)
+        
+        # Validate we can create a new scan run with the new columns
+        run_id = migrated_db.create_scan_run(
+            target_id=1, 
+            confirmation_method="mock", 
+            modules_run=["whois_dns"]
+        )
+        assert run_id == 2
+        
+        # Validate get_previous_scan_run works (run 1 was legacy, no modules_run)
+        # Note: run 1 status was 'running', so get_previous_scan_run might not return it unless we complete it.
+        migrated_db.complete_scan_run(1, status="success")
+        prev = migrated_db.get_previous_scan_run(1, 2)
+        assert prev is not None
+        assert prev[0] == 1
+        assert prev[1] == "success"
+        # Since it had no modules_run (null or empty depending on how SQLite added default), it should return empty list.
+        # Actually, DEFAULT '[]' populates it for existing rows.
+        assert prev[2] == []
+        migrated_db.close()
+

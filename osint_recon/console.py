@@ -171,6 +171,87 @@ def print_findings_summary(scan: ScanResult) -> None:
     console.print()
 
 
+def print_diff_summary(scan: ScanResult) -> None:
+    """Print the diff between the current scan and the previous scan."""
+    if scan.previous_scan_run_id is None:
+        console.print(f"  [{_CYAN}]Baseline Scan (No previous scan found for target)[/{_CYAN}]")
+        console.print()
+        return
+
+    console.print(Rule(f"[bold {_CYAN}]What Changed Since Last Scan (Run #{scan.previous_scan_run_id})[/]", style=_DIM))
+    console.print()
+
+    if scan.previous_scan_was_partial:
+        console.print(f"  [{_ORANGE}]  Warning: Previous scan (Run #{scan.previous_scan_run_id}) encountered partial failures.[/{_ORANGE}]")
+        console.print(f"  [{_ORANGE}]  Some 'new' findings may be due to improved data completeness.[/{_ORANGE}]")
+        console.print()
+
+    prev_mods = set(scan.previous_scan_modules)
+    curr_mods = set(scan.modules_run)
+    
+    skipped_mods = prev_mods - curr_mods
+    if skipped_mods:
+        skipped_str = ", ".join(sorted(skipped_mods))
+        console.print(f"  [{_ORANGE}]  Warning: This scan skipped modules that ran previously: {skipped_str}[/{_ORANGE}]")
+        console.print(f"  [{_ORANGE}]  Findings from these modules cannot be marked as resolved.[/{_ORANGE}]")
+        console.print()
+
+    new_mods = curr_mods - prev_mods
+    if new_mods and prev_mods:
+        new_str = ", ".join(sorted(new_mods))
+        console.print(f"  [{_ORANGE}]  Warning: This scan added new modules: {new_str}[/{_ORANGE}]")
+        console.print(f"  [{_ORANGE}]  All findings from these modules will appear as new.[/{_ORANGE}]")
+        console.print()
+
+    if not scan.new_findings and not scan.resolved_findings:
+        console.print(f"  [{_DIM}]No new or resolved findings since last scan.[/{_DIM}]")
+        console.print()
+        return
+
+    table = Table(
+        box=box.SIMPLE_HEAD,
+        show_header=True,
+        header_style=f"bold {_CYAN}",
+        border_style=_DIM,
+        pad_edge=False,
+        expand=False,
+    )
+    table.add_column("Type", style="bold white", no_wrap=True, min_width=16)
+    table.add_column("Value", style="white", min_width=30)
+    table.add_column("Risk", justify="center", no_wrap=True, min_width=8)
+
+    for f in scan.new_findings:
+        if f.risk_level.value == "critical":
+            risk_style = f"bold {_RED} reverse"
+        elif f.risk_level.value == "high":
+            risk_style = f"bold {_RED}"
+        elif f.risk_level.value == "medium":
+            risk_style = f"bold {_ORANGE}"
+        elif f.risk_level.value == "low":
+            risk_style = f"bold {_GREEN}"
+        else:
+            risk_style = f"bold {_CYAN}"
+            
+        val_str = f.value[:80] + ("..." if len(f.value) > 80 else "")
+        table.add_row(
+            f"[{_GREEN}]+ {f.finding_type}[/{_GREEN}]",
+            val_str,
+            Text(f.risk_level.value.upper(), style=risk_style),
+        )
+
+    for f in scan.resolved_findings:
+        risk_style = f"dim {_RED}"
+        val_str = f.value[:80] + ("..." if len(f.value) > 80 else "")
+        table.add_row(
+            f"[{_RED}]- {f.finding_type}[/{_RED}]",
+            f"[dim]{val_str}[/dim]",
+            Text(f.risk_level.value.upper(), style=risk_style),
+        )
+
+    console.print(table)
+    console.print()
+
+
 def print_scan_footer(
     scan: ScanResult,
     report_path: Path | None = None,
@@ -229,20 +310,42 @@ def _stat_cell(label: str, value: str, color: str) -> Panel:
     return Panel(content, border_style=_DIM, padding=(0, 2), expand=False)
 
 
-def confirm_target(target: str) -> bool:
-    """Ask the user to confirm the scan target using a Rich prompt."""
+def confirm_target(target: str, original_target: str | None = None, resolved_company_name: str | None = None) -> bool:
+    """Prompt the user to confirm they are authorized to scan the target.
+    If original_target is provided, it means the target was auto-resolved from a company name.
+    """
     console.print()
-    console.print(
-        Panel(
-            f"[bold white]Target:[/bold white]  [{_GREEN}]{target}[/{_GREEN}]\n\n"
+    
+    if original_target and original_target != target:
+        warning_title = f"[bold {_RED}]  RESOLUTION WARNING  [/bold {_RED}]"
+        
+        display_name = f" ({resolved_company_name})" if resolved_company_name else ""
+        
+        warning_text = (
+            f"[{_CYAN}]'{original_target}'[/{_CYAN}] resolved to [{_GREEN}]{target}{display_name}[/{_GREEN}] — confirm this is correct\n"
+            f"and you are authorized to scan it.\n\n"
             f"[{_DIM}]Only scan domains or entities you own or have explicit\n"
             f"written permission to test. This tool performs passive\n"
-            f"reconnaissance only.[/{_DIM}]",
-            title=f"[bold {_RED}]  WARNING  [/bold {_RED}]",
-            border_style=_RED,
-            padding=(1, 3),
+            f"reconnaissance only.[/{_DIM}]"
         )
+    else:
+        warning_title = f"[bold {_RED}]  AUTHORIZATION REQUIRED  [/bold {_RED}]"
+        warning_text = (
+            f"You are about to initiate OSINT recon against:\n"
+            f"  [{_GREEN}]{target}[/{_GREEN}]\n\n"
+            f"[{_DIM}]Only scan domains you own or have explicit written\n"
+            f"permission to test. This tool performs passive\n"
+            f"reconnaissance only.[/{_DIM}]"
+        )
+
+    panel = Panel(
+        warning_text,
+        title=warning_title,
+        border_style=_RED,
+        padding=(1, 2),
+        expand=False,
     )
+    console.print(panel)
     return Confirm.ask("  Confirm scan?", console=console, default=False)
 
 

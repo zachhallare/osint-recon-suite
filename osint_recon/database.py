@@ -31,7 +31,8 @@ CREATE TABLE IF NOT EXISTS scan_runs (
     started_at          TEXT    NOT NULL,
     completed_at        TEXT,
     status              TEXT    NOT NULL DEFAULT 'running',
-    confirmation_method TEXT    NOT NULL DEFAULT 'interactive'
+    confirmation_method TEXT    NOT NULL DEFAULT 'interactive',
+    modules_run         TEXT    NOT NULL DEFAULT '[]'
 );
 
 CREATE TABLE IF NOT EXISTS findings (
@@ -63,12 +64,17 @@ class Database:
 
     def _init_schema(self) -> None:
         self._conn.executescript(_DDL)
-        # Migrate existing databases that pre-date the confirmation_method column.
+        # Migrate existing databases that pre-date the confirmation_method and modules_run columns.
         cols = {row[1] for row in self._conn.execute("PRAGMA table_info(scan_runs)")}
         if "confirmation_method" not in cols:
             self._conn.execute(
                 "ALTER TABLE scan_runs ADD COLUMN "
                 "confirmation_method TEXT NOT NULL DEFAULT 'interactive'"
+            )
+        if "modules_run" not in cols:
+            self._conn.execute(
+                "ALTER TABLE scan_runs ADD COLUMN "
+                "modules_run TEXT NOT NULL DEFAULT '[]'"
             )
         self._conn.commit()
 
@@ -90,12 +96,14 @@ class Database:
         self,
         target_id: int,
         confirmation_method: str = "interactive",
+        modules_run: list[str] | None = None,
     ) -> int:
         """Start a new scan run and return its id."""
         started_at = datetime.now(_UTC).isoformat()
+        mod_json = json.dumps(modules_run or [])
         cur = self._conn.execute(
-            "INSERT INTO scan_runs (target_id, started_at, confirmation_method) VALUES (?, ?, ?)",
-            (target_id, started_at, confirmation_method),
+            "INSERT INTO scan_runs (target_id, started_at, confirmation_method, modules_run) VALUES (?, ?, ?, ?)",
+            (target_id, started_at, confirmation_method, mod_json),
         )
         self._conn.commit()
         logger.debug(
@@ -142,6 +150,22 @@ class Database:
             (scan_run_id,),
         )
         return cur.fetchall()
+
+    def get_previous_scan_run(self, target_id: int, current_run_id: int) -> tuple[int, str, list[str]] | None:
+        """Get the (id, status, modules_run) of the most recent successful or partial scan for the target."""
+        cur = self._conn.execute(
+            """
+            SELECT id, status, modules_run FROM scan_runs 
+            WHERE target_id = ? AND id < ? AND status IN ('success', 'partial')
+            ORDER BY id DESC LIMIT 1
+            """,
+            (target_id, current_run_id)
+        )
+        row = cur.fetchone()
+        if row:
+            mods = json.loads(row["modules_run"]) if row["modules_run"] else []
+            return (int(row["id"]), row["status"], mods)
+        return None
 
     def close(self) -> None:
         self._conn.close()

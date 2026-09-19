@@ -62,6 +62,14 @@ Only scan domains you own or have explicit written permission to test.
         metavar="DIR",
         help="Directory to write the HTML report (default: reports/)",
     )
+    p.add_argument(
+        "--modules",
+        help="Comma-separated list of modules to run (allowlist)",
+    )
+    p.add_argument(
+        "--skip",
+        help="Comma-separated list of modules to skip (denylist)",
+    )
 
     # HTML report flags -- mutually exclusive.
     html_group = p.add_mutually_exclusive_group()
@@ -84,10 +92,15 @@ Only scan domains you own or have explicit written permission to test.
 async def main() -> None:
     args = build_arg_parser().parse_args()
 
+    if args.modules and args.skip:
+        print("Error: Cannot specify both --modules and --skip.", file=sys.stderr)
+        sys.exit(1)
+
     from osint_recon.console import (
         ask_html_prompt,
         make_progress,
         print_banner,
+        print_diff_summary,
         print_findings_summary,
         print_scan_footer,
     )
@@ -114,10 +127,65 @@ async def main() -> None:
             MetadataExtractorModule(),
             SocialMediaModule(),
         ]
+        
+        available_modules = {m.MODULE_NAME: m for m in modules}
+        
+        if args.modules:
+            requested = [x.strip() for x in args.modules.split(",")]
+            invalid = [x for x in requested if x not in available_modules]
+            if invalid:
+                print(f"Error: Invalid module(s) specified in --modules: {', '.join(invalid)}", file=sys.stderr)
+                print(f"Valid modules are: {', '.join(available_modules.keys())}", file=sys.stderr)
+                sys.exit(1)
+            modules = [available_modules[x] for x in requested]
+            
+        elif args.skip:
+            skipped = [x.strip() for x in args.skip.split(",")]
+            invalid = [x for x in skipped if x not in available_modules]
+            if invalid:
+                print(f"Error: Invalid module(s) specified in --skip: {', '.join(invalid)}", file=sys.stderr)
+                print(f"Valid modules are: {', '.join(available_modules.keys())}", file=sys.stderr)
+                sys.exit(1)
+            modules = [m for m in modules if m.MODULE_NAME not in skipped]
 
     from osint_recon.orchestrator import Orchestrator
     from osint_recon.reporter import Reporter
     from osint_recon.models import ConfirmationMethod
+
+    from osint_recon.resolvers import resolve_target, AmbiguousResolutionError
+    from rich.prompt import IntPrompt
+    from rich import print as rprint
+    
+    try:
+        resolved_target, company_name, is_resolved = await resolve_target(args.target)
+    except AmbiguousResolutionError as e:
+        logger.warning("Ambiguous target resolution for '%s'", args.target)
+        rprint(f"\n[yellow]Multiple candidates found for '{args.target}':[/yellow]")
+        for idx, candidate in enumerate(e.candidates):
+            rprint(f"  [{idx + 1}] {candidate.get('name', 'Unknown')} ({candidate.get('domain', 'No domain')})")
+        rprint(f"  [0] Cancel")
+        
+        choice = IntPrompt.ask("\nSelect a candidate", choices=[str(i) for i in range(len(e.candidates) + 1)])
+        if choice == 0:
+            sys.exit(0)
+            
+        selected = e.candidates[choice - 1]
+        resolved_target = selected.get('domain')
+        company_name = selected.get('name')
+        is_resolved = True
+        
+        if not resolved_target:
+            rprint("\n[red]Error:[/red] Selected candidate has no domain.")
+            sys.exit(1)
+            
+    except Exception as e:
+        logger.error("Target resolution failed: %s", e)
+        print(f"\n[red]Error:[/red] {e}")
+        sys.exit(1)
+
+    if is_resolved:
+        # Force the confirmation prompt even if --no-confirm was passed
+        args.no_confirm = False
 
     orch = Orchestrator(
         modules=modules,
@@ -139,11 +207,14 @@ async def main() -> None:
     # Run modules inside an animated progress bar.
     with make_progress() as progress:
         scan = await orch.run(
-            args.target,
+            target=resolved_target,
+            original_target=args.target if is_resolved else None,
+            resolved_company_name=company_name,
             progress=progress,
             confirmation_method=confirmation,
         )
 
+    print_diff_summary(scan)
     print_findings_summary(scan)
 
     # Decide whether to generate the HTML report.

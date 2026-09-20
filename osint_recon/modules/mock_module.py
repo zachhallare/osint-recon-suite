@@ -15,20 +15,20 @@ class MockModule(BaseModule):
         return [
             Finding(
                 module_name=self.MODULE_NAME,
-                finding_type="mock_info",
-                value=f"Fake informational finding for {target}",
-                extra={"source": "mock", "note": "delete before prod"},
-            ),
-            Finding(
-                module_name=self.MODULE_NAME,
-                finding_type="mock_medium",
-                value="Simulated medium-risk item (e.g. exposed admin panel URL)",
+                finding_type="config_file",
+                value=f"Exposed administrator login panel at https://{target}/admin",
                 extra={"url": f"https://{target}/admin", "source": "mock"},
             ),
             Finding(
                 module_name=self.MODULE_NAME,
-                finding_type="mock_high",
-                value="Simulated high-risk item (e.g. .git directory exposed)",
-                extra={"url": f"https://{target}/.git/HEAD", "source": "mock"},
+                finding_type="git_exposure",
+                value=f"Sensitive .git directory exposed at https://{target}/.git/config",
+                extra={"url": f"https://{target}/.git/config", "source": "mock"},
+            ),
+            Finding(
+                module_name=self.MODULE_NAME,
+                finding_type="private_key",
+                value="AWS IAM Access Key leaked on public GitHub repository",
+                extra={"url": f"https://github.com/{target}/repo", "source": "mock"},
             ),
         ]

@@ -3,6 +3,7 @@
 [![Stars][stars-shield]][stars-url]
 [![Forks][forks-shield]][forks-url]
 [![Issues][issues-shield]][issues-url]
+[![Tests](https://img.shields.io/badge/tests-193%20passed-success)](#)
 
 <br />
 
@@ -98,6 +99,15 @@ scripts\run.bat                           # Windows
 ```
 
 ### Scan Features & Reporting
+
+<p align="center">
+  <img src="docs/example1.png" alt="Recon Report Dashboard" width="100%">
+</p>
+<p align="center">
+  <img src="docs/example2.png" alt="Recon Report Diff and Findings" width="100%">
+</p>
+*A sample mock report showcasing risk scoring, module findings, and differential scan comparisons.*
+
 - **Terminal UI**: Live animated progress indicators during scanning, followed by a streamlined findings summary table.
 - **Authorization Audit Trail**: Every run logs its authorization status (`INTERACTIVE`, `BYPASSED`, or `MOCK`) in SQLite, on the CLI footer, and as an audit badge in the HTML report.
 - **Optional HTML Report**: Generated on demand (`--html` flag or interactive prompt). Saved to `reports/<target>_run<id>_<timestamp>.html` and self-contained with no external server or CDN dependencies.

@@ -40,3 +40,12 @@ Thumbs.db
 # ── Personal ─────────────────────────────────────────────────────
 notes.md
 
+
+
+venv/
+__pycache__/
+*.log
+build/
+*.egg-info/
+reports/
+test_env/

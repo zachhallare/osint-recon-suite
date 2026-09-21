@@ -1,2 +1,0 @@
-[console_scripts]
-recon-suite = osint_recon.main:cli

@@ -29,7 +29,7 @@ def _parse_args(argv: list[str]):
     # Import here so the test does not trigger side effects at collection time
     import importlib.util, types
     # We only need the parser, not asyncio.run(main())
-    import main as m
+    import osint_recon.main as m
     return m.build_arg_parser().parse_args(argv)
 
 

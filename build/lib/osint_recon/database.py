@@ -167,33 +167,6 @@ class Database:
             return (int(row["id"]), row["status"], mods)
         return None
 
-    def get_all_scan_runs(self) -> list[sqlite3.Row]:
-        """Get all scan runs ordered by started_at descending."""
-        cur = self._conn.execute(
-            """
-            SELECT sr.*, t.domain, t.name as target_name,
-                (SELECT risk_level FROM findings f WHERE f.scan_run_id = sr.id 
-                 ORDER BY CASE risk_level 
-                    WHEN 'critical' THEN 1 
-                    WHEN 'high' THEN 2 
-                    WHEN 'medium' THEN 3 
-                    WHEN 'low' THEN 4 
-                    ELSE 5 END LIMIT 1) as max_risk
-            FROM scan_runs sr 
-            JOIN targets t ON sr.target_id = t.id 
-            ORDER BY sr.started_at DESC
-            """
-        )
-        return cur.fetchall()
-        
-    def delete_all_data(self) -> None:
-        """Delete all scan history, findings, and targets."""
-        self._conn.execute("DELETE FROM findings")
-        self._conn.execute("DELETE FROM scan_runs")
-        self._conn.execute("DELETE FROM targets")
-        self._conn.execute("VACUUM")
-        self._conn.commit()
-
     def close(self) -> None:
         self._conn.close()
 
@@ -202,4 +175,3 @@ class Database:
 
     def __exit__(self, *_: object) -> None:
         self.close()
-

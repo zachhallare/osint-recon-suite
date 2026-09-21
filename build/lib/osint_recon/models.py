@@ -1,0 +1,168 @@
+"""Data models for scan findings and results."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any
+
+_UTC = timezone.utc
+
+
+class RiskLevel(str, Enum):
+    """Severity classification for individual findings."""
+    INFO = "info"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+    @property
+    def score(self) -> int:
+        """Numerical score mapping for this risk level."""
+        mapping = {
+            RiskLevel.INFO: 0,
+            RiskLevel.LOW: 1,
+            RiskLevel.MEDIUM: 5,
+            RiskLevel.HIGH: 10,
+            RiskLevel.CRITICAL: 25,
+        }
+        return mapping[self]
+
+def score_to_tier(score: int) -> str:
+    """Map a numerical risk score to an overall tier."""
+    if score >= 50:
+        return "Critical"
+    if score >= 25:
+        return "High"
+    if score >= 10:
+        return "Medium"
+    if score >= 1:
+        return "Low"
+    return "Informational"
+
+
+class ModuleStatus(str, Enum):
+    """Outcome of a module run."""
+    SUCCESS = "success"
+    PARTIAL = "partial"   # Some findings returned with errors
+    FAILED = "failed"     # Module failed without data
+    SKIPPED = "skipped"   # Module was disabled for this run
+
+
+class ConfirmationMethod(str, Enum):
+    """How the scan target was authorized before execution."""
+    INTERACTIVE = "interactive"  # User was prompted and confirmed
+    BYPASSED = "bypassed"        # --no-confirm flag was passed
+    MOCK = "mock"                # --mock flag; no real network calls
+
+
+@dataclass
+class Finding:
+    """Single finding discovered by a recon module."""
+    module_name: str
+    finding_type: str
+    value: str
+    risk_level: RiskLevel = RiskLevel.INFO
+    extra: dict[str, Any] = field(default_factory=dict)
+    discovered_at: datetime = field(default_factory=lambda: datetime.now(_UTC))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "module_name": self.module_name,
+            "finding_type": self.finding_type,
+            "value": self.value,
+            "risk_level": self.risk_level.value,
+            "extra": self.extra,
+            "discovered_at": self.discovered_at.isoformat(),
+        }
+
+
+@dataclass
+class ModuleResult:
+    """Outcome and findings from a single module run."""
+    module_name: str
+    status: ModuleStatus
+    findings: list[Finding] = field(default_factory=list)
+    error: str | None = None
+    duration_s: float = 0.0
+    source_status: str | None = None
+
+    @property
+    def risk_score(self) -> int:
+        """Total risk score for all findings in this module."""
+        return sum(f.risk_level.score for f in self.findings)
+
+    @property
+    def risk_tier(self) -> str:
+        """Overall risk tier for this module."""
+        return score_to_tier(self.risk_score)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "module_name": self.module_name,
+            "status": self.status.value,
+            "findings": [f.to_dict() for f in self.findings],
+            "error": self.error,
+            "duration_s": round(self.duration_s, 3),
+            "source_status": self.source_status,
+            "risk_score": self.risk_score,
+            "risk_tier": self.risk_tier,
+        }
+
+
+@dataclass
+class ScanResult:
+    """Overall scan results across all modules."""
+    target: str
+    scan_run_id: int
+    started_at: datetime
+    completed_at: datetime | None = None
+    results: list[ModuleResult] = field(default_factory=list)
+    confirmation_method: ConfirmationMethod = ConfirmationMethod.INTERACTIVE
+    previous_scan_run_id: int | None = None
+    previous_scan_was_partial: bool = False
+    new_findings: list[Finding] = field(default_factory=list)
+    resolved_findings: list[Finding] = field(default_factory=list)
+    modules_run: list[str] = field(default_factory=list)
+    previous_scan_modules: list[str] = field(default_factory=list)
+
+    @property
+    def all_findings(self) -> list[Finding]:
+        """Flatten all module findings into a single list."""
+        return [f for r in self.results for f in r.findings]
+
+    @property
+    def total_duration_s(self) -> float:
+        if self.completed_at is None:
+            return 0.0
+        return (self.completed_at - self.started_at).total_seconds()
+
+    @property
+    def total_risk_score(self) -> int:
+        """Total risk score aggregated across all modules."""
+        return sum(r.risk_score for r in self.results)
+
+    @property
+    def overall_risk_tier(self) -> str:
+        """Overall risk tier for the entire scan."""
+        return score_to_tier(self.total_risk_score)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "target": self.target,
+            "scan_run_id": self.scan_run_id,
+            "started_at": self.started_at.isoformat(),
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "total_duration_s": round(self.total_duration_s, 3),
+            "results": [r.to_dict() for r in self.results],
+            "total_risk_score": self.total_risk_score,
+            "overall_risk_tier": self.overall_risk_tier,
+            "previous_scan_run_id": self.previous_scan_run_id,
+            "previous_scan_was_partial": self.previous_scan_was_partial,
+            "new_findings": [f.to_dict() for f in self.new_findings],
+            "resolved_findings": [f.to_dict() for f in self.resolved_findings],
+            "modules_run": self.modules_run,
+            "previous_scan_modules": self.previous_scan_modules,
+        }

@@ -63,8 +63,13 @@ def print_banner() -> None:
     """Print the startup ASCII banner with neon green styling."""
     art = Text(_BANNER_ART, style=f"bold {_GREEN}", justify="center")
     tagline = Text.from_markup(f"[{_DIM}]{_TAGLINE}[/{_DIM}]")
-    console.print(art)
-    console.print(tagline, justify="center")
+    panel = Panel(
+        art,
+        subtitle=tagline,
+        border_style=_CYAN,
+        padding=(0, 2),
+    )
+    console.print(panel)
     console.print()
 
 

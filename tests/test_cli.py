@@ -48,8 +48,7 @@ def test_cli_invalid_module_denylist():
     assert "whois_dns" in result.stderr
 
 def test_cli_mock_mode():
-    """Test that --mock bypasses normal module validation."""
-    # Since --mock runs the mock module, we can just ensure it doesn't crash on module validation.
+    """Test that --mock runs successfully."""
     result = subprocess.run(
         [sys.executable, str(MAIN_PY), "example.com", "--mock", "--no-confirm"],
         capture_output=True,
@@ -58,6 +57,44 @@ def test_cli_mock_mode():
         env={**os.environ, "PYTHONIOENCODING": "utf-8"},
     )
     assert result.returncode == 0
+
+def test_cli_mock_with_valid_subset():
+    """Test that --mock respects --modules allowlist."""
+    result = subprocess.run(
+        [sys.executable, str(MAIN_PY), "example.com", "--mock", "--modules", "whois_dns", "--no-confirm"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+    )
+    assert result.returncode == 0
+    assert "Invalid module(s)" not in result.stderr
+    assert "MOCK (no network calls)" in result.stdout
+    assert "whois_dns" in result.stdout
+
+def test_cli_mock_with_invalid_subset():
+    """Test that --mock errors out on invalid --modules."""
+    result = subprocess.run(
+        [sys.executable, str(MAIN_PY), "example.com", "--mock", "--modules", "foobar", "--no-confirm"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+    )
+    assert result.returncode != 0
+    assert "Invalid module(s) specified in --modules: foobar" in result.stderr
+
+def test_cli_mock_with_skip():
+    """Test that --mock respects --skip denylist."""
+    result = subprocess.run(
+        [sys.executable, str(MAIN_PY), "example.com", "--mock", "--skip", "social_media", "--no-confirm"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+    )
+    assert result.returncode == 0
+    assert "Invalid module(s)" not in result.stderr
 
 from unittest.mock import patch, MagicMock
 from osint_recon.main import cli

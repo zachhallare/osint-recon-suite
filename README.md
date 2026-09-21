@@ -3,7 +3,7 @@
 [![Stars][stars-shield]][stars-url]
 [![Forks][forks-shield]][forks-url]
 [![Issues][issues-shield]][issues-url]
-[![Tests](https://img.shields.io/badge/tests-193%20passed-success)](#)
+[![Tests](https://img.shields.io/badge/tests-203%20passed-success)](#)
 
 <br />
 
@@ -37,6 +37,29 @@
 
 <!-- QUICKSTART -->
 ## ⚡ 30-Second Quickstart
+
+> [!TIP]
+> **Recommended:** Install globally via `pipx` to run from anywhere without manually managing virtual environments.
+
+### 📦 Recommended Install (pipx)
+
+**Option 1 (One-Liner):**
+```bash
+pipx install git+https://github.com/zachhallare/osint-recon-suite.git
+```
+
+**Option 2 (From Clone):**
+```bash
+git clone https://github.com/zachhallare/osint-recon-suite.git
+cd osint-recon-suite
+pipx install .
+```
+
+After installation, launch the interactive menu from anywhere by typing `recon-suite`.
+
+---
+
+### 📜 Alternative Install (Standalone Scripts)
 
 > No manual setup required. The launcher creates the virtual environment, installs dependencies, and walks you through the rest.
 
@@ -85,20 +108,44 @@ scripts\run.bat
 <!-- USAGE -->
 ## Usage
 
-```bash
-# Interactive — prompts you for a domain and scan mode
-./scripts/run.sh                          # macOS / Linux
-scripts\run.bat                           # Windows
+If you installed via `pipx`, you can use the `recon-suite` command globally. If you used the standalone scripts, replace `recon-suite` with `./scripts/run.sh` (macOS/Linux) or `scripts\run.bat` (Windows).
 
-# Or pass arguments directly
-./scripts/run.sh example.com              # live scan (prompts for HTML report)
-./scripts/run.sh "Acme Corp"              # target resolution: resolves company name to domain
-./scripts/run.sh example.com --mock       # safe test - no network calls
-./scripts/run.sh example.com --html       # automatically generate HTML report
-./scripts/run.sh example.com --no-html    # skip HTML report (terminal summary only)
-./scripts/run.sh example.com --no-confirm # unattended / CI mode (audited as BYPASSED)
-./scripts/run.sh example.com --modules "Whois & DNS,Subdomains"  # allowlist modules
-./scripts/run.sh example.com --skip "Social Media"               # denylist modules
+### Interactive Menu
+
+Run the tool without arguments to launch the interactive menu, which prompts you for a target and scan mode:
+
+```bash
+recon-suite
+```
+
+```text
+==================================================
+        OSINT Recon Suite - Interactive Menu
+==================================================
+  [1] Start a new recon scan
+  [2] View past scan history
+  [3] Uninstall / remove scan data
+  [0] Exit
+==================================================
+Select an option:
+```
+
+### Command Line Interface
+
+You can also pass arguments directly for automation or quick scans:
+
+```bash
+# Basic usage
+recon-suite example.com              # live scan (prompts for HTML report)
+recon-suite "Acme Corp"              # target resolution (mandatory prompt to confirm domain, ignores --no-confirm)
+
+# Advanced options
+recon-suite example.com --mock       # safe test - no network calls
+recon-suite example.com --html       # automatically generate HTML report
+recon-suite example.com --no-html    # skip HTML report (terminal summary only)
+recon-suite example.com --no-confirm # unattended / CI mode (audited as BYPASSED)
+recon-suite example.com --modules whois_dns,subdomain,breach_check  # allowlist modules
+recon-suite example.com --skip social_media                # denylist modules
 ```
 
 ### Scan Features & Reporting
@@ -117,13 +164,27 @@ scripts\run.bat                           # Windows
 
 **Safe first run (zero network activity):**
 ```bash
-./scripts/run.sh example.com --mock
+recon-suite example.com --mock
 ```
 
 ---
 
 <!-- UNINSTALL -->
 ## Uninstall
+
+### pipx Install
+
+If you installed globally via `pipx`, simply run:
+
+```bash
+pipx uninstall osint-recon-suite
+```
+
+*(Note: To remove data files like SQLite and reports, use the interactive menu: `recon-suite` -> Option 3. Requires typing DELETE to confirm.)*
+
+### Standalone Scripts Install
+
+If you used the standalone launcher scripts, run the uninstaller:
 
 ```bash
 ./scripts/uninstall.sh          # macOS / Linux  (or double-click scripts/uninstall.command in Finder)

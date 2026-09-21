@@ -11,7 +11,28 @@ class MockModule(BaseModule):
 
     MODULE_NAME = "mock"
 
+    def __init__(self, selected_modules: list[str] | None = None) -> None:
+        super().__init__()
+        self.selected_modules = selected_modules
+
     async def _run(self, target: str) -> list[Finding]:
+        if self.selected_modules is not None:
+            if not self.selected_modules:
+                return []
+            
+            findings = []
+            for i, mod in enumerate(self.selected_modules):
+                risk_tier = ["high", "medium", "info"][i % 3]
+                findings.append(
+                    Finding(
+                        module_name=mod,
+                        finding_type=f"mock_{risk_tier}",
+                        value=f"Synthetic {risk_tier.upper()} finding for {mod}",
+                        extra={"url": f"https://{target}/", "source": "mock"},
+                    )
+                )
+            return findings
+
         return [
             Finding(
                 module_name=self.MODULE_NAME,

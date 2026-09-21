@@ -116,39 +116,40 @@ async def main() -> None:
     from osint_recon.modules.whois_dns_module import WhoisDnsModule
     from osint_recon.modules.breach_module import BreachModule
 
+    modules = [
+        WhoisDnsModule(),
+        SubdomainModule(),
+        CompanyMapperModule(),
+        DocumentScannerModule(),
+        MetadataExtractorModule(),
+        SocialMediaModule(),
+        BreachModule(),
+    ]
+    
+    available_modules = {m.MODULE_NAME: m for m in modules}
+    
+    if args.modules:
+        requested = [x.strip() for x in args.modules.split(",")]
+        invalid = [x for x in requested if x not in available_modules]
+        if invalid:
+            print(f"Error: Invalid module(s) specified in --modules: {', '.join(invalid)}", file=sys.stderr)
+            print(f"Valid modules are: {', '.join(available_modules.keys())}", file=sys.stderr)
+            sys.exit(1)
+        modules = [available_modules[x] for x in requested]
+        
+    elif args.skip:
+        skipped = [x.strip() for x in args.skip.split(",")]
+        invalid = [x for x in skipped if x not in available_modules]
+        if invalid:
+            print(f"Error: Invalid module(s) specified in --skip: {', '.join(invalid)}", file=sys.stderr)
+            print(f"Valid modules are: {', '.join(available_modules.keys())}", file=sys.stderr)
+            sys.exit(1)
+        modules = [m for m in modules if m.MODULE_NAME not in skipped]
+
     if args.mock:
-        modules = [MockModule()]
         logger.info("Running in MOCK mode -- no network calls will be made.")
-    else:
-        modules = [
-            WhoisDnsModule(),
-            SubdomainModule(),
-            CompanyMapperModule(),
-            DocumentScannerModule(),
-            MetadataExtractorModule(),
-            SocialMediaModule(),
-            BreachModule(),
-        ]
-        
-        available_modules = {m.MODULE_NAME: m for m in modules}
-        
-        if args.modules:
-            requested = [x.strip() for x in args.modules.split(",")]
-            invalid = [x for x in requested if x not in available_modules]
-            if invalid:
-                print(f"Error: Invalid module(s) specified in --modules: {', '.join(invalid)}", file=sys.stderr)
-                print(f"Valid modules are: {', '.join(available_modules.keys())}", file=sys.stderr)
-                sys.exit(1)
-            modules = [available_modules[x] for x in requested]
-            
-        elif args.skip:
-            skipped = [x.strip() for x in args.skip.split(",")]
-            invalid = [x for x in skipped if x not in available_modules]
-            if invalid:
-                print(f"Error: Invalid module(s) specified in --skip: {', '.join(invalid)}", file=sys.stderr)
-                print(f"Valid modules are: {', '.join(available_modules.keys())}", file=sys.stderr)
-                sys.exit(1)
-            modules = [m for m in modules if m.MODULE_NAME not in skipped]
+        mock_module = MockModule([m.MODULE_NAME for m in modules])
+        modules = [mock_module]
 
     from osint_recon.orchestrator import Orchestrator
     from osint_recon.reporter import Reporter

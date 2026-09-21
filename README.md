@@ -57,51 +57,7 @@ pipx install .
 
 After installation, launch the interactive menu from anywhere by typing `recon-suite`.
 
----
-
-### 📜 Alternative Install (Standalone Scripts)
-
-> No manual setup required. The launcher creates the virtual environment, installs dependencies, and walks you through the rest.
-
-### macOS
-
-```bash
-git clone https://github.com/zachhallare/osint-recon-suite.git
-cd osint-recon-suite
-chmod +x scripts/run.sh scripts/run.command scripts/uninstall.sh scripts/uninstall.command
-./scripts/run.sh
-```
-
-> **Finder shortcut:** Double-click **`scripts/run.command`** in Finder and Terminal opens automatically.
-
-### Linux (Kali, Ubuntu, Debian, Arch, Fedora)
-
-```bash
-# Kali / Debian / Ubuntu - ensure prerequisites first (one-time):
-# sudo apt install -y python3 python3-venv python3-pip whois git
-
-git clone https://github.com/zachhallare/osint-recon-suite.git
-cd osint-recon-suite
-chmod +x scripts/run.sh scripts/uninstall.sh
-./scripts/run.sh
-```
-
-### Windows
-
-```bat
-git clone https://github.com/zachhallare/osint-recon-suite.git
-cd osint-recon-suite
-scripts\run.bat
-```
-
-> **Explorer shortcut:** Double-click **`scripts\run.bat`** in Explorer and CMD opens automatically.
-
-> [!NOTE]
-> **macOS / Linux only - make scripts executable once after cloning (from the repo root):**
-> ```bash
-> chmod +x scripts/run.sh scripts/run.command scripts/uninstall.sh scripts/uninstall.command
-> ```
-> Not needed on Windows.
+For manual setups or using the standalone scripts see the installation guides in the docs folder.
 
 ---
 
@@ -169,32 +125,6 @@ recon-suite example.com --mock
 
 ---
 
-<!-- UNINSTALL -->
-## Uninstall
-
-### pipx Install
-
-If you installed globally via `pipx`, simply run:
-
-```bash
-pipx uninstall osint-recon-suite
-```
-
-*(Note: To remove data files like SQLite and reports, use the interactive menu: `recon-suite` -> Option 3. Requires typing DELETE to confirm.)*
-
-### Standalone Scripts Install
-
-If you used the standalone launcher scripts, run the uninstaller:
-
-```bash
-./scripts/uninstall.sh          # macOS / Linux  (or double-click scripts/uninstall.command in Finder)
-scripts\uninstall.bat           # Windows
-```
-
-The interactive uninstaller menu offers:
-- **Option 1** - Remove scan data only (reports, database, logs). Keeps code and venv.
-- **Option 2** - Full removal: everything above plus the virtualenv and entire repository directory. Requires typing `yes` to confirm.
-
 ---
 
 <!-- DOCUMENTATION -->
@@ -202,10 +132,11 @@ The interactive uninstaller menu offers:
 
 | Guide | Description |
 |-------|-------------|
-| [docs/how-to-run.md](docs/how-to-run.md) | Full OS-specific setup guide (Kali Linux, WSL, headless servers, troubleshooting) |
+| [docs/windows-installation.md](docs/windows-installation.md) | setup guide for windows |
+| [docs/linux-installation.md](docs/linux-installation.md) | setup guide for linux |
+| [docs/mac-installation.md](docs/mac-installation.md) | setup guide for mac |
 | [docs/features.md](docs/features.md) | Module list, architecture, sample output, limitations |
 | [docs/testing.md](docs/testing.md) | Test coverage table and how to run the offline test suite |
-| [docs/project-structure.md](docs/project-structure.md) | Annotated directory and file tree |
 | [docs/original-contribution.md](docs/original-contribution.md) | Novel design decisions and implementations |
 
 ---

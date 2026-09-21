@@ -2,40 +2,32 @@
 
 ## Running the Tests
 
-```bash
-# Ensure virtual environment is active first
-python -m pytest tests/ -v
-```
+First make sure your virtual environment is active. Then run `pytest tests` in the terminal.
 
-All tests run **fully offline** — no live DNS, WHOIS, crt.sh, Shodan, ipapi.co, GitHub, or social media calls are made during testing.
-
----
+> All tests run fully offline so no live network calls are ever made during testing.
 
 ## Testing Environment
 
-| Component | Details |
-|-----------|---------|
-| Test runner | pytest 8.2.2 |
-| Async support | anyio / pytest-asyncio (asyncio backend) |
-| Network isolation | All HTTP and DNS calls mocked; real pypdf, python-docx, and Pillow used against in-memory synthetic blobs |
-| Fixture storage | `tests/fixtures/` — saved API responses for reproducibility |
-| Python version | 3.13.7 (Windows) |
+- **Test framework**: The tests use pytest and anyio for async support.
+- **Network isolation**: All HTTP and DNS calls are mocked out.
+- **Parser testing**: Real parsers like pypdf and Pillow are tested against fake files generated in memory.
+- **Reproducibility**: We use saved API responses in the fixtures folder to make tests perfectly reproducible.
 
----
+## Test Coverage (202 tests total)
 
-## Test Coverage (162 tests)
-
-| Test File | Tests | What Is Covered |
-|-----------|-------|----------------|
-| test_models.py | 8 | Finding, ModuleResult, ScanResult dataclasses, ConfirmationMethod enum |
-| test_base_module.py | 4 | Error isolation, timing, status contracts |
-| test_database.py | 6 | SQLite upsert, scan run lifecycle, finding persistence |
-| test_confirmation_audit.py | 16 | CLI flag derivation, --mock vs --no-confirm precedence, confirmation_method DB persistence, legacy schema migration |
-| test_reporter.py | 6 | HTML structure, risk badges, error module display, auth badge rendering |
-| test_whois_dns_module.py | 19 | WHOIS parsing, DNS record types, expiry risk, NXDOMAIN, timeouts, date normalization |
-| test_subdomain_module.py | 21 | crt.sh parsing, SAN multi-value fields, wildcard detection, keyword classification, DNS live/dead |
-| test_company_mapper_module.py | 26 | Shodan InternetDB, ipapi.co, reverse IP, MX/NS fingerprinting, port risk |
-| test_document_scanner_module.py | 12 | HEAD probing, size-limit enforcement, risk classification, HTTPS/HTTP deduplication |
-| test_metadata_extractor_module.py | 23 | PDF/Office/image parsing, GPS decimal conversion, download size and timeout guard, extension detection |
-| test_social_media_module.py | 21 | Slug derivation, platform probing, HackerNews null-body edge case, GitHub API enrichment, sensitive repo detection, org/user fallback |
-| **Total** | **162** | |
+- **test_models.py**: Covers finding, module result, scan result, and confirmation method classes.
+- **test_base_module.py**: Covers error isolation, timing, and status contracts.
+- **test_database.py**: Covers SQLite inserts, the scan run lifecycle, and finding persistence.
+- **test_confirmation_audit.py**: Covers command-line flags and database persistence for the audit trail.
+- **test_reporter.py**: Covers HTML structure, risk badges, error displays, and authorization badges.
+- **test_whois_dns_module.py**: Covers parsing, record types, expiry risk, timeouts, and date formatting.
+- **test_subdomain_module.py**: Covers crt.sh parsing, wildcard detection, keyword classification, and DNS checks.
+- **test_company_mapper_module.py**: Covers Shodan, ipapi, reverse IP, fingerprinting, and port risks.
+- **test_document_scanner_module.py**: Covers HEAD probing, size limits, risk classification, and deduplication.
+- **test_metadata_extractor_module.py**: Covers PDF, Office, and image parsing, GPS conversion, and extension detection.
+- **test_social_media_module.py**: Covers slug derivation, platform probing, the GitHub API, and repo detection.
+- **test_breach_module.py**: Covers missing API keys, rate limiting, and risk scoring.
+- **test_cli.py**: Covers argument parsing, the interactive menu, mock mode, and flag combinations.
+- **test_orchestrator.py**: Covers module concurrency, error isolation, finding diffs, and partial scans.
+- **test_resolvers.py**: Covers target resolution, company to domain mapping, and ambiguity errors.
+- **test_scoring.py**: Covers base risk mapping, port risks, breach date scoring, and CVE escalation.
